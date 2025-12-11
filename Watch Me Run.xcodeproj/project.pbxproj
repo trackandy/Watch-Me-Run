@@ -6,7 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D26635E82EE8DABD001B65C3 /* meets.csv in Resources */ = {isa = PBXBuildFile; fileRef = D26635E72EE8DAB6001B65C3 /* meets.csv */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
+		D26635E72EE8DAB6001B65C3 /* meets.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = meets.csv; sourceTree = "<group>"; };
 		D26656822EE8D177000C6EC5 /* Watch Me Run.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Watch Me Run.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -32,6 +37,7 @@
 		D26656792EE8D177000C6EC5 = {
 			isa = PBXGroup;
 			children = (
+				D26635E72EE8DAB6001B65C3 /* meets.csv */,
 				D26656842EE8D177000C6EC5 /* Watch Me Run */,
 				D26656832EE8D177000C6EC5 /* Products */,
 			);
@@ -82,6 +88,7 @@
 				TargetAttributes = {
 					D26656812EE8D177000C6EC5 = {
 						CreatedOnToolsVersion = 26.0.1;
+						LastSwiftMigration = 2600;
 					};
 				};
 			};
@@ -109,6 +116,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D26635E82EE8DABD001B65C3 /* meets.csv in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -251,6 +259,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = B996K2W77V;
@@ -272,6 +281,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -283,6 +293,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = B996K2W77V;
