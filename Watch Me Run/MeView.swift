@@ -55,7 +55,11 @@ struct MeView: View {
                         HStack(spacing: 12) {
                             Image(systemName: "person.circle.fill")
                                 .font(.system(size: 28))
-                                .foregroundColor(Color.wmrAccentBlue)
+                                .foregroundColor(
+                                    isLoggedIn
+                                    ? Color.green.opacity(0.9)
+                                    : Color.red.opacity(0.9)
+                                )
 
                             VStack(alignment: .leading, spacing: 4) {
                                 if isLoggedIn {
@@ -186,16 +190,133 @@ struct MeView: View {
                         .frame(maxWidth: .infinity)
                         .background(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color.wmrAccentBlue.opacity(0.20))
+                                .fill(Color.orange.opacity(0.85))
                         )
-                        .foregroundColor(Color.wmrTextPrimary)
+                        .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
 
-                    // Placeholder: later this is where a list of the user’s races would appear.
-                    Text("Your upcoming races will appear here.")
-                        .font(.caption)
-                        .foregroundColor(Color.wmrTextTertiary)
+                    // Upcoming races
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Upcoming")
+                            .font(.caption)
+                            .foregroundColor(Color.wmrTextSecondary)
+
+                        VStack(spacing: 0) {
+                            // Header row
+                            HStack {
+                                Text("Race")
+                                    .font(.caption2)
+                                    .foregroundColor(Color.wmrTextTertiary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                Text("Distance")
+                                    .font(.caption2)
+                                    .foregroundColor(Color.wmrTextTertiary)
+                                    .frame(width: 70, alignment: .center)
+
+                                Text("Date")
+                                    .font(.caption2)
+                                    .foregroundColor(Color.wmrTextTertiary)
+                                    .frame(width: 110, alignment: .trailing)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.top, 8)
+                            .padding(.bottom, 4)
+
+                            Divider()
+                                .background(Color.wmrBorderSubtle)
+
+                            // Placeholder upcoming race
+                            HStack {
+                                Text("Peachtree Road Race")
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .foregroundColor(Color.wmrTextPrimary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                Text("10 km")
+                                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                                    .foregroundColor(Color.wmrTextSecondary)
+                                    .frame(width: 70, alignment: .center)
+
+                                Text("July 4th, 2026")
+                                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                                    .foregroundColor(Color.wmrTextSecondary)
+                                    .frame(width: 110, alignment: .trailing)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                        }
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color.wmrSurface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(Color.wmrBorderSubtle, lineWidth: 1)
+                                )
+                        )
+                    }
+
+                    // Past races
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Past")
+                            .font(.caption)
+                            .foregroundColor(Color.wmrTextSecondary)
+
+                        VStack(spacing: 0) {
+                            // Header row
+                            HStack {
+                                Text("Race")
+                                    .font(.caption2)
+                                    .foregroundColor(Color.wmrTextTertiary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                Text("Distance")
+                                    .font(.caption2)
+                                    .foregroundColor(Color.wmrTextTertiary)
+                                    .frame(width: 70, alignment: .center)
+
+                                Text("Date")
+                                    .font(.caption2)
+                                    .foregroundColor(Color.wmrTextTertiary)
+                                    .frame(width: 110, alignment: .trailing)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.top, 8)
+                            .padding(.bottom, 4)
+
+                            Divider()
+                                .background(Color.wmrBorderSubtle)
+
+                            // Placeholder past race
+                            HStack {
+                                Text("NYC Marathon")
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .foregroundColor(Color.wmrTextPrimary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                Text("26.2 M")
+                                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                                    .foregroundColor(Color.wmrTextSecondary)
+                                    .frame(width: 70, alignment: .center)
+
+                                Text("November 3rd, 2026")
+                                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                                    .foregroundColor(Color.wmrTextSecondary)
+                                    .frame(width: 110, alignment: .trailing)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                        }
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color.wmrSurface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(Color.wmrBorderSubtle, lineWidth: 1)
+                                )
+                        )
+                    }
                 }
                 .padding(.horizontal, 16)
 
