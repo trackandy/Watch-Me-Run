@@ -70,25 +70,53 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundColor(Color.wmrTextSecondary)
 
-                    VStack(spacing: 8) {
-                        HStack {
-                            Text("1st race reminder")
-                                .font(.footnote)
-                                .foregroundColor(Color.wmrTextSecondary)
-                            Spacer()
-                            Text("20 minutes before")
-                                .font(.footnote)
-                                .foregroundColor(Color.wmrTextPrimary)
-                        }
+                    VStack(spacing: 12) {
+                        HStack(spacing: 16) {
+                            // 1st notification
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("1st notification")
+                                    .font(.footnote)
+                                    .foregroundColor(Color.wmrTextSecondary)
 
-                        HStack {
-                            Text("2nd race reminder")
-                                .font(.footnote)
-                                .foregroundColor(Color.wmrTextSecondary)
-                            Spacer()
-                            Text("None")
-                                .font(.footnote)
-                                .foregroundColor(Color.wmrTextPrimary)
+                                Button {
+                                    // TODO: Present timing picker for 1st notification
+                                } label: {
+                                    Text("20 minutes")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 8)
+                                        .frame(maxWidth: .infinity)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color.wmrAccentBlue.opacity(0.25))
+                                        )
+                                        .foregroundColor(.white)
+                                }
+                                .buttonStyle(.plain)
+                            }
+
+                            // 2nd notification
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("2nd notification")
+                                    .font(.footnote)
+                                    .foregroundColor(Color.wmrTextSecondary)
+
+                                Button {
+                                    // TODO: Present timing picker for 2nd notification
+                                } label: {
+                                    Text("")
+                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 8)
+                                        .frame(maxWidth: .infinity)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color.white.opacity(0.06))
+                                        )
+                                        .foregroundColor(Color.wmrTextSecondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
 
                         Text("Later you’ll be able to customize timing for up to two race notifications (from 20 minutes to 48 hours before).")
