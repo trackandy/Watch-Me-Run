@@ -105,6 +105,7 @@ struct WatchingView: View {
                 }
                 .padding(.horizontal, 16)
 
+                /*
                 // MARK: - Pros Section
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 6) {
@@ -146,6 +147,7 @@ struct WatchingView: View {
                     }
                 }
                 .padding(.horizontal, 16)
+                */
 
                 // MARK: - Runners Section
                 VStack(alignment: .leading, spacing: 12) {
