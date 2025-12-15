@@ -5,15 +5,31 @@
 //  Created by Andy Kent on 12/9/25.
 //
 
+
 import SwiftUI
 import FirebaseAuth
 import AuthenticationServices
 import CryptoKit
 
+private let userRaceDateFormatter: DateFormatter = {
+    let df = DateFormatter()
+    df.dateStyle = .medium
+    df.timeStyle = .none
+    return df
+}()
+
+private let userRaceDayFormatter: DateFormatter = {
+    let df = DateFormatter()
+    df.dateFormat = "MMM d"
+    return df
+}()
+
 struct MeView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var isPresentingRaceInput = false
     @State private var currentNonce: String?
+    @State private var userRaces: [UserRace] = []
+    @State private var raceBeingEdited: UserRace?
 
     private var isLoggedIn: Bool {
         authManager.isLoggedIn
@@ -21,6 +37,18 @@ struct MeView: View {
 
     private var displayName: String {
         authManager.firebaseUser?.displayName ?? "Runner"
+    }
+
+    private var upcomingRaces: [UserRace] {
+        userRaces
+            .filter { !$0.isInPast }
+            .sorted { $0.date > $1.date }
+    }
+
+    private var pastRaces: [UserRace] {
+        userRaces
+            .filter { $0.isInPast }
+            .sorted { $0.date > $1.date }
     }
 
     var body: some View {
@@ -250,25 +278,76 @@ struct MeView: View {
                             Divider()
                                 .background(Color.wmrBorderSubtle)
 
-                            // Placeholder upcoming race
-                            HStack {
-                                Text("Peachtree Road Race")
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .foregroundColor(Color.wmrTextPrimary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            if upcomingRaces.isEmpty {
+                                HStack {
+                                    Text("No upcoming races yet")
+                                        .font(.system(size: 13, weight: .regular, design: .rounded))
+                                        .foregroundColor(Color.wmrTextSecondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                            } else {
+                                let groups = Dictionary(grouping: upcomingRaces) { race in
+                                    Calendar.current.component(.year, from: race.date)
+                                }
+                                let sortedYears = groups.keys.sorted(by: >)
+                                let lastYear = sortedYears.last ?? sortedYears[0]
 
-                                Text("10 km")
-                                    .font(.system(size: 13, weight: .regular, design: .rounded))
-                                    .foregroundColor(Color.wmrTextSecondary)
-                                    .frame(width: 70, alignment: .center)
+                                ForEach(sortedYears, id: \.self) { year in
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack {
+                                            Text(String(year))
+                                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                                .foregroundColor(Color.wmrTextSecondary)
+                                            Spacer()
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.top, 6)
+                                        .padding(.bottom, 2)
 
-                                Text("July 4th, 2026")
-                                    .font(.system(size: 13, weight: .regular, design: .rounded))
-                                    .foregroundColor(Color.wmrTextSecondary)
-                                    .frame(width: 110, alignment: .trailing)
+                                        Divider()
+                                            .background(Color.wmrBorderSubtle)
+                                            .padding(.horizontal, 12)
+
+                                        let racesForYear = groups[year]!.sorted { $0.date > $1.date }
+
+                                        ForEach(Array(racesForYear.enumerated()), id: \.element.id) { index, race in
+                                            let isSoonestUpcoming = (year == lastYear && index == racesForYear.count - 1)
+
+                                            Button {
+                                                raceBeingEdited = race
+                                            } label: {
+                                                HStack {
+                                                    Text(race.name)
+                                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                                        .foregroundColor(Color.wmrTextPrimary)
+                                                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                                                    Text(race.distance)
+                                                        .font(.system(size: 13, weight: .regular, design: .rounded))
+                                                        .foregroundColor(Color.wmrTextSecondary)
+                                                        .frame(width: 70, alignment: .center)
+
+                                                    Text(userRaceDayFormatter.string(from: race.date))
+                                                        .font(.system(size: 13, weight: .regular, design: .rounded))
+                                                        .foregroundColor(Color.wmrTextSecondary)
+                                                        .frame(width: 110, alignment: .trailing)
+                                                }
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 8)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                        .stroke(isSoonestUpcoming ? Color.yellow.opacity(0.9) : Color.clear,
+                                                                lineWidth: 1.5)
+                                                )
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                    .padding(.bottom, 4)
+                                }
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
                         }
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -311,25 +390,65 @@ struct MeView: View {
                             Divider()
                                 .background(Color.wmrBorderSubtle)
 
-                            // Placeholder past race
-                            HStack {
-                                Text("NYC Marathon")
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .foregroundColor(Color.wmrTextPrimary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            if pastRaces.isEmpty {
+                                HStack {
+                                    Text("No past races yet")
+                                        .font(.system(size: 13, weight: .regular, design: .rounded))
+                                        .foregroundColor(Color.wmrTextSecondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                            } else {
+                                let groups = Dictionary(grouping: pastRaces) { race in
+                                    Calendar.current.component(.year, from: race.date)
+                                }
 
-                                Text("26.2 M")
-                                    .font(.system(size: 13, weight: .regular, design: .rounded))
-                                    .foregroundColor(Color.wmrTextSecondary)
-                                    .frame(width: 70, alignment: .center)
+                                ForEach(groups.keys.sorted(by: >), id: \.self) { year in
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack {
+                                            Text(String(year))
+                                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                                .foregroundColor(Color.wmrTextSecondary)
+                                            Spacer()
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.top, 6)
+                                        .padding(.bottom, 2)
 
-                                Text("November 3rd, 2026")
-                                    .font(.system(size: 13, weight: .regular, design: .rounded))
-                                    .foregroundColor(Color.wmrTextSecondary)
-                                    .frame(width: 110, alignment: .trailing)
+                                        Divider()
+                                            .background(Color.wmrBorderSubtle)
+                                            .padding(.horizontal, 12)
+
+                                        ForEach(groups[year]!.sorted(by: { $0.date > $1.date })) { race in
+                                            Button {
+                                                raceBeingEdited = race
+                                            } label: {
+                                                HStack {
+                                                    Text(race.name)
+                                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                                        .foregroundColor(Color.wmrTextPrimary)
+                                                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                                                    Text(race.distance)
+                                                        .font(.system(size: 13, weight: .regular, design: .rounded))
+                                                        .foregroundColor(Color.wmrTextSecondary)
+                                                        .frame(width: 70, alignment: .center)
+
+                                                    Text(userRaceDayFormatter.string(from: race.date))
+                                                        .font(.system(size: 13, weight: .regular, design: .rounded))
+                                                        .foregroundColor(Color.wmrTextSecondary)
+                                                        .frame(width: 110, alignment: .trailing)
+                                                }
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 8)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                    .padding(.bottom, 4)
+                                }
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
                         }
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -349,7 +468,16 @@ struct MeView: View {
             .padding(.bottom, 32)
         }
         .sheet(isPresented: $isPresentingRaceInput) {
-            RaceInputSheet()
+            RaceInputSheet { newRace in
+                userRaces.append(newRace)
+            }
+        }
+        .sheet(item: $raceBeingEdited) { race in
+            RaceInputSheet(existingRace: race) { updatedRace in
+                if let index = userRaces.firstIndex(where: { $0.id == updatedRace.id }) {
+                    userRaces[index] = updatedRace
+                }
+            }
         }
     }
 }
@@ -387,12 +515,36 @@ private func sha256(_ input: String) -> String {
 
 struct RaceInputSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    let existingRace: UserRace?
+    let onSave: (UserRace) -> Void
 
-    @State private var raceName: String = ""
-    @State private var raceDate: Date = Date()
-    @State private var raceDistance: String = ""
-    @State private var liveResultsLink: String = ""
-    @State private var watchingLink: String = ""
+    @State private var raceName: String
+    @State private var raceDate: Date
+    @State private var raceDistance: String
+    @State private var liveResultsLink: String
+    @State private var watchingLink: String
+    @State private var showingLinksInfo = false
+
+    private var canOpenLiveResultsLink: Bool {
+        let trimmed = liveResultsLink.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && URL(string: trimmed) != nil
+    }
+
+    private var canOpenWatchingLink: Bool {
+        let trimmed = watchingLink.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && URL(string: trimmed) != nil
+    }
+
+    init(existingRace: UserRace? = nil, onSave: @escaping (UserRace) -> Void) {
+        self.existingRace = existingRace
+        self.onSave = onSave
+        _raceName = State(initialValue: existingRace?.name ?? "")
+        _raceDate = State(initialValue: existingRace?.date ?? Date())
+        _raceDistance = State(initialValue: existingRace?.distance ?? "")
+        _liveResultsLink = State(initialValue: existingRace?.liveResultsURL?.absoluteString ?? "")
+        _watchingLink = State(initialValue: existingRace?.watchURL?.absoluteString ?? "")
+    }
 
     var body: some View {
         NavigationStack {
@@ -409,18 +561,73 @@ struct RaceInputSheet: View {
                     TextField("Distance (e.g. 5K, Half)", text: $raceDistance)
                 }
 
-                Section("Links") {
-                    TextField("Live results link", text: $liveResultsLink)
-                        .keyboardType(.URL)
-                        .textContentType(.URL)
+                Section {
+                    HStack(spacing: 8) {
+                        TextField("Live results link", text: $liveResultsLink)
+                            .keyboardType(.URL)
+                            .textContentType(.URL)
 
-                    TextField("Watching link", text: $watchingLink)
-                        .keyboardType(.URL)
-                        .textContentType(.URL)
+                        Button {
+                            let trimmed = liveResultsLink.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if let url = URL(string: trimmed) {
+                                openURL(url)
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.right.square")
+                                .font(.system(size: 14, weight: .semibold))
+                                .padding(6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(Color.gray.opacity(canOpenLiveResultsLink ? 0.25 : 0.12))
+                                )
+                        }
+                        .foregroundColor(canOpenLiveResultsLink ? Color.accentColor : Color.gray.opacity(0.7))
+                        .disabled(!canOpenLiveResultsLink)
+                    }
+
+                    HStack(spacing: 8) {
+                        TextField("Watching link", text: $watchingLink)
+                            .keyboardType(.URL)
+                            .textContentType(.URL)
+
+                        Button {
+                            let trimmed = watchingLink.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if let url = URL(string: trimmed) {
+                                openURL(url)
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.right.square")
+                                .font(.system(size: 14, weight: .semibold))
+                                .padding(6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(Color.gray.opacity(canOpenWatchingLink ? 0.25 : 0.12))
+                                )
+                        }
+                        .foregroundColor(canOpenWatchingLink ? Color.accentColor : Color.gray.opacity(0.7))
+                        .disabled(!canOpenWatchingLink)
+                    }
+                } header: {
+                    HStack {
+                        Text("Links")
+                        Spacer()
+                        Button {
+                            showingLinksInfo = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
             .navigationTitle("Input Race")
             .navigationBarTitleDisplayMode(.inline)
+            .alert("Links info", isPresented: $showingLinksInfo) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Please paste links in here – most links likely start with https://\n\nTest links by tapping on the buttons")
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -429,7 +636,24 @@ struct RaceInputSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        // TODO: Validate & save race to the user's account
+                        let trimmedName = raceName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedDistance = raceDistance.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedLive = liveResultsLink.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedWatching = watchingLink.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                        let liveURL = trimmedLive.isEmpty ? nil : URL(string: trimmedLive)
+                        let watchURL = trimmedWatching.isEmpty ? nil : URL(string: trimmedWatching)
+
+                        let newRace = UserRace(
+                            id: existingRace?.id ?? UUID().uuidString,
+                            name: trimmedName.isEmpty ? "Untitled race" : trimmedName,
+                            distance: trimmedDistance,
+                            date: raceDate,
+                            liveResultsURL: liveURL,
+                            watchURL: watchURL
+                        )
+
+                        onSave(newRace)
                         dismiss()
                     }
                 }
