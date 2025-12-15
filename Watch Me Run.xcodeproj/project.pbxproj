@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		D26635E82EE8DABD001B65C3 /* meets.csv in Resources */ = {isa = PBXBuildFile; fileRef = D26635E72EE8DAB6001B65C3 /* meets.csv */; };
+		D27DE77D2EEF894900E2543B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = D27DE77C2EEF894900E2543B /* FirebaseAuth */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D27DE77D2EEF894900E2543B /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,6 +73,7 @@
 			);
 			name = "Watch Me Run";
 			packageProductDependencies = (
+				D27DE77C2EEF894900E2543B /* FirebaseAuth */,
 			);
 			productName = "Watch Me Run";
 			productReference = D26656822EE8D177000C6EC5 /* Watch Me Run.app */;
@@ -101,6 +104,9 @@
 			);
 			mainGroup = D26656792EE8D177000C6EC5;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D27DE77B2EEF894900E2543B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D26656832EE8D177000C6EC5 /* Products */;
 			projectDirPath = "";
@@ -260,6 +266,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = "Watch Me Run/Watch Me Run.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = B996K2W77V;
@@ -294,6 +301,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = "Watch Me Run/Watch Me Run.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = B996K2W77V;
@@ -343,6 +351,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D27DE77B2EEF894900E2543B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.7.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D27DE77C2EEF894900E2543B /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D27DE77B2EEF894900E2543B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = D266567A2EE8D177000C6EC5 /* Project object */;
 }

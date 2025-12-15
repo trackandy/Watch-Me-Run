@@ -6,11 +6,22 @@
 //
 
 import SwiftUI
+import FirebaseAuth
+import AuthenticationServices
+import CryptoKit
 
 struct MeView: View {
-    @State private var isLoggedIn: Bool = false        // Placeholder until real auth is wired up
-    @State private var userName: String? = nil         // Placeholder name from Apple later
+    @EnvironmentObject var authManager: AuthManager
     @State private var isPresentingRaceInput = false
+    @State private var currentNonce: String?
+
+    private var isLoggedIn: Bool {
+        authManager.isLoggedIn
+    }
+
+    private var displayName: String {
+        authManager.firebaseUser?.displayName ?? "Runner"
+    }
 
     var body: some View {
         ScrollView {
@@ -63,7 +74,7 @@ struct MeView: View {
 
                             VStack(alignment: .leading, spacing: 4) {
                                 if isLoggedIn {
-                                    Text(userName ?? "Logged in")
+                                    Text(displayName)
                                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                                         .foregroundColor(Color.wmrTextPrimary)
 
@@ -85,33 +96,45 @@ struct MeView: View {
 
                             if isLoggedIn {
                                 Button {
-                                    // TODO: Hook up real sign-out
-                                    isLoggedIn = false
-                                    userName = nil
+                                    authManager.signOut()
                                 } label: {
                                     Text("Sign out")
                                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                                         .foregroundColor(Color.wmrAccentBlue)
                                 }
                             } else {
-                                Button {
-                                    // TODO: Replace with Sign in with Apple flow
-                                    isLoggedIn = true
-                                    userName = "Runner"
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "apple.logo")
-                                        Text("Sign in")
+                                SignInWithAppleButton(.signIn) { request in
+                                    let nonce = randomNonceString()
+                                    currentNonce = nonce
+                                    request.requestedScopes = [.fullName, .email]
+                                    request.nonce = sha256(nonce)
+                                } onCompletion: { result in
+                                    switch result {
+                                    case .success(let authResult):
+                                        guard let appleIDCredential = authResult.credential as? ASAuthorizationAppleIDCredential else {
+                                            print("❌ Unable to cast credential to ASAuthorizationAppleIDCredential")
+                                            return
+                                        }
+
+                                        guard let nonce = currentNonce else {
+                                            print("❌ Invalid state: no login request nonce")
+                                            return
+                                        }
+
+                                        guard let appleIDToken = appleIDCredential.identityToken,
+                                              let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
+                                            print("❌ Unable to fetch identity token")
+                                            return
+                                        }
+
+                                        authManager.signInWithApple(idToken: idTokenString, nonce: nonce)
+
+                                    case .failure(let error):
+                                        print("❌ Sign in with Apple failed: \(error.localizedDescription)")
                                     }
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.white.opacity(0.10))
-                                    )
-                                    .foregroundColor(Color.wmrTextPrimary)
                                 }
+                                .signInWithAppleButtonStyle(.whiteOutline)
+                                .frame(height: 32)
                             }
                         }
                         .padding(14)
@@ -331,6 +354,37 @@ struct MeView: View {
     }
 }
 
+// MARK: - Sign in with Apple helpers
+
+private func randomNonceString(length: Int = 32) -> String {
+    precondition(length > 0)
+    let charset: [Character] =
+        Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+    var result = ""
+    var remainingLength = length
+
+    while remainingLength > 0 {
+        var random: UInt8 = 0
+        let errorCode = SecRandomCopyBytes(kSecRandomDefault, 1, &random)
+        if errorCode != errSecSuccess {
+            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+        }
+
+        if random < charset.count {
+            result.append(charset[Int(random)])
+            remainingLength -= 1
+        }
+    }
+
+    return result
+}
+
+private func sha256(_ input: String) -> String {
+    let inputData = Data(input.utf8)
+    let hashedData = SHA256.hash(data: inputData)
+    return hashedData.compactMap { String(format: "%02x", $0) }.joined()
+}
+
 struct RaceInputSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -387,6 +441,7 @@ struct RaceInputSheet: View {
 struct MeView_Previews: PreviewProvider {
     static var previews: some View {
         MeView()
+            .environmentObject(AuthManager())
             .environment(\.colorScheme, .dark)
             .background(Color.wmrBackground)
     }
