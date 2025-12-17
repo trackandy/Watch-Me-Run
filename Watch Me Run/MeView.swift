@@ -349,7 +349,7 @@ struct MeView: View {
                                                             openURL(url)
                                                         }
                                                     } label: {
-                                                        Image(systemName: "questionmark.circle")
+                                                        Image(systemName: "list.number")
                                                             .font(.system(size: 8, weight: .semibold))
                                                             .padding(2)
                                                             .background(
@@ -366,7 +366,7 @@ struct MeView: View {
                                                             openURL(url)
                                                         }
                                                     } label: {
-                                                        Image(systemName: "questionmark.circle")
+                                                        Image(systemName: "tv")
                                                             .font(.system(size: 8, weight: .semibold))
                                                             .padding(2)
                                                             .background(
@@ -501,7 +501,7 @@ struct MeView: View {
                                                             openURL(url)
                                                         }
                                                     } label: {
-                                                        Image(systemName: "questionmark.circle")
+                                                        Image(systemName: "list.number")
                                                             .font(.system(size: 8, weight: .semibold))
                                                             .padding(2)
                                                             .background(
@@ -518,7 +518,7 @@ struct MeView: View {
                                                             openURL(url)
                                                         }
                                                     } label: {
-                                                        Image(systemName: "questionmark.circle")
+                                                        Image(systemName: "tv")
                                                             .font(.system(size: 8, weight: .semibold))
                                                             .padding(2)
                                                             .background(
@@ -689,7 +689,7 @@ struct RaceInputSheet: View {
                                 openURL(url)
                             }
                         } label: {
-                            Image(systemName: "arrow.up.right.square")
+                            Image(systemName: "list.number")
                                 .font(.system(size: 14, weight: .semibold))
                                 .padding(6)
                                 .background(
@@ -712,7 +712,7 @@ struct RaceInputSheet: View {
                                 openURL(url)
                             }
                         } label: {
-                            Image(systemName: "arrow.up.right.square")
+                            Image(systemName: "tv")
                                 .font(.system(size: 14, weight: .semibold))
                                 .padding(6)
                                 .background(
