@@ -24,8 +24,15 @@ private let userRaceDayFormatter: DateFormatter = {
     return df
 }()
 
+private let userRaceDateTimeFormatter: DateFormatter = {
+    let df = DateFormatter()
+    df.dateFormat = "MMM d, HH:mm"
+    return df
+}()
+
 struct MeView: View {
     @EnvironmentObject var authManager: AuthManager
+    @Environment(\.openURL) private var openURL
     @State private var isPresentingRaceInput = false
     @State private var currentNonce: String?
     @State private var userRaces: [UserRace] = []
@@ -255,7 +262,7 @@ struct MeView: View {
 
                         VStack(spacing: 0) {
                             // Header row
-                            HStack {
+                            HStack(spacing: 6) {
                                 Text("Race")
                                     .font(.caption2)
                                     .foregroundColor(Color.wmrTextTertiary)
@@ -264,12 +271,17 @@ struct MeView: View {
                                 Text("Distance")
                                     .font(.caption2)
                                     .foregroundColor(Color.wmrTextTertiary)
-                                    .frame(width: 70, alignment: .center)
+                                    .frame(width: 60, alignment: .center)
+
+                                Text("Links")
+                                    .font(.caption2)
+                                    .foregroundColor(Color.wmrTextTertiary)
+                                    .frame(width: 40, alignment: .center)
 
                                 Text("Date")
                                     .font(.caption2)
                                     .foregroundColor(Color.wmrTextTertiary)
-                                    .frame(width: 110, alignment: .trailing)
+                                    .frame(width: 104, alignment: .trailing)
                             }
                             .padding(.horizontal, 12)
                             .padding(.top, 8)
@@ -314,35 +326,75 @@ struct MeView: View {
 
                                         ForEach(Array(racesForYear.enumerated()), id: \.element.id) { index, race in
                                             let isSoonestUpcoming = (year == lastYear && index == racesForYear.count - 1)
+                                            let hasLiveLink = (race.liveResultsURL != nil)
+                                            let hasWatchLink = (race.watchURL != nil)
 
-                                            Button {
-                                                raceBeingEdited = race
-                                            } label: {
-                                                HStack {
-                                                    Text(race.name)
-                                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                                        .foregroundColor(Color.wmrTextPrimary)
-                                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                            HStack(spacing: 6) {
+                                                Text(race.name)
+                                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                                    .foregroundColor(Color.wmrTextPrimary)
+                                                    .lineLimit(2)
+                                                    .minimumScaleFactor(0.9)
+                                                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                                                    Text(race.distance)
-                                                        .font(.system(size: 13, weight: .regular, design: .rounded))
-                                                        .foregroundColor(Color.wmrTextSecondary)
-                                                        .frame(width: 70, alignment: .center)
+                                                Text(race.distance)
+                                                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                                                    .foregroundColor(Color.wmrTextSecondary)
+                                                    .frame(width: 60, alignment: .center)
 
-                                                    Text(userRaceDayFormatter.string(from: race.date))
-                                                        .font(.system(size: 13, weight: .regular, design: .rounded))
-                                                        .foregroundColor(Color.wmrTextSecondary)
-                                                        .frame(width: 110, alignment: .trailing)
+                                                HStack(spacing: 4) {
+                                                    // Live results status (left)
+                                                    Button {
+                                                        if let url = race.liveResultsURL {
+                                                            openURL(url)
+                                                        }
+                                                    } label: {
+                                                        Image(systemName: "questionmark.circle")
+                                                            .font(.system(size: 8, weight: .semibold))
+                                                            .padding(2)
+                                                            .background(
+                                                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                                                    .fill(Color.gray.opacity(hasLiveLink ? 0.25 : 0.12))
+                                                            )
+                                                    }
+                                                    .foregroundColor(hasLiveLink ? Color.green.opacity(0.9) : Color.gray.opacity(0.7))
+                                                    .disabled(!hasLiveLink)
+
+                                                    // Watching status (right)
+                                                    Button {
+                                                        if let url = race.watchURL {
+                                                            openURL(url)
+                                                        }
+                                                    } label: {
+                                                        Image(systemName: "questionmark.circle")
+                                                            .font(.system(size: 8, weight: .semibold))
+                                                            .padding(2)
+                                                            .background(
+                                                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                                                    .fill(Color.gray.opacity(hasWatchLink ? 0.25 : 0.12))
+                                                            )
+                                                    }
+                                                    .foregroundColor(hasWatchLink ? Color.green.opacity(0.9) : Color.gray.opacity(0.7))
+                                                    .disabled(!hasWatchLink)
                                                 }
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 8)
-                                                .background(
-                                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                                        .stroke(isSoonestUpcoming ? Color.yellow.opacity(0.9) : Color.clear,
-                                                                lineWidth: 1.5)
-                                                )
+                                                .frame(width: 40, alignment: .center)
+
+                                                Text("\(userRaceDateTimeFormatter.string(from: race.date)) \(currentTimeZoneCode())")
+                                                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                                                    .foregroundColor(Color.wmrTextSecondary)
+                                                    .frame(width: 104, alignment: .trailing)
                                             }
-                                            .buttonStyle(.plain)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                    .stroke(isSoonestUpcoming ? Color.yellow.opacity(0.9) : Color.clear,
+                                                            lineWidth: 1.5)
+                                            )
+                                            .contentShape(Rectangle())
+                                            .onTapGesture {
+                                                raceBeingEdited = race
+                                            }
                                         }
                                     }
                                     .padding(.bottom, 4)
@@ -367,7 +419,7 @@ struct MeView: View {
 
                         VStack(spacing: 0) {
                             // Header row
-                            HStack {
+                            HStack(spacing: 6) {
                                 Text("Race")
                                     .font(.caption2)
                                     .foregroundColor(Color.wmrTextTertiary)
@@ -376,12 +428,17 @@ struct MeView: View {
                                 Text("Distance")
                                     .font(.caption2)
                                     .foregroundColor(Color.wmrTextTertiary)
-                                    .frame(width: 70, alignment: .center)
+                                    .frame(width: 60, alignment: .center)
+
+                                Text("Links")
+                                    .font(.caption2)
+                                    .foregroundColor(Color.wmrTextTertiary)
+                                    .frame(width: 40, alignment: .center)
 
                                 Text("Date")
                                     .font(.caption2)
                                     .foregroundColor(Color.wmrTextTertiary)
-                                    .frame(width: 110, alignment: .trailing)
+                                    .frame(width: 104, alignment: .trailing)
                             }
                             .padding(.horizontal, 12)
                             .padding(.top, 8)
@@ -421,29 +478,70 @@ struct MeView: View {
                                             .padding(.horizontal, 12)
 
                                         ForEach(groups[year]!.sorted(by: { $0.date > $1.date })) { race in
-                                            Button {
-                                                raceBeingEdited = race
-                                            } label: {
-                                                HStack {
-                                                    Text(race.name)
-                                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                                        .foregroundColor(Color.wmrTextPrimary)
-                                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                            let hasLiveLink = (race.liveResultsURL != nil)
+                                            let hasWatchLink = (race.watchURL != nil)
 
-                                                    Text(race.distance)
-                                                        .font(.system(size: 13, weight: .regular, design: .rounded))
-                                                        .foregroundColor(Color.wmrTextSecondary)
-                                                        .frame(width: 70, alignment: .center)
+                                            HStack(spacing: 6) {
+                                                Text(race.name)
+                                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                                    .foregroundColor(Color.wmrTextPrimary)
+                                                    .lineLimit(2)
+                                                    .minimumScaleFactor(0.9)
+                                                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                                                    Text(userRaceDayFormatter.string(from: race.date))
-                                                        .font(.system(size: 13, weight: .regular, design: .rounded))
-                                                        .foregroundColor(Color.wmrTextSecondary)
-                                                        .frame(width: 110, alignment: .trailing)
+                                                Text(race.distance)
+                                                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                                                    .foregroundColor(Color.wmrTextSecondary)
+                                                    .frame(width: 60, alignment: .center)
+
+                                                HStack(spacing: 4) {
+                                                    // Live results status (left)
+                                                    Button {
+                                                        if let url = race.liveResultsURL {
+                                                            openURL(url)
+                                                        }
+                                                    } label: {
+                                                        Image(systemName: "questionmark.circle")
+                                                            .font(.system(size: 8, weight: .semibold))
+                                                            .padding(2)
+                                                            .background(
+                                                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                                                    .fill(Color.gray.opacity(hasLiveLink ? 0.25 : 0.12))
+                                                            )
+                                                    }
+                                                    .foregroundColor(hasLiveLink ? Color.green.opacity(0.9) : Color.gray.opacity(0.7))
+                                                    .disabled(!hasLiveLink)
+
+                                                    // Watching status (right)
+                                                    Button {
+                                                        if let url = race.watchURL {
+                                                            openURL(url)
+                                                        }
+                                                    } label: {
+                                                        Image(systemName: "questionmark.circle")
+                                                            .font(.system(size: 8, weight: .semibold))
+                                                            .padding(2)
+                                                            .background(
+                                                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                                                    .fill(Color.gray.opacity(hasWatchLink ? 0.25 : 0.12))
+                                                            )
+                                                    }
+                                                    .foregroundColor(hasWatchLink ? Color.green.opacity(0.9) : Color.gray.opacity(0.7))
+                                                    .disabled(!hasWatchLink)
                                                 }
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 8)
+                                                .frame(width: 40, alignment: .center)
+
+                                                Text("\(userRaceDateTimeFormatter.string(from: race.date)) \(currentTimeZoneCode())")
+                                                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                                                    .foregroundColor(Color.wmrTextSecondary)
+                                                    .frame(width: 104, alignment: .trailing)
                                             }
-                                            .buttonStyle(.plain)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .contentShape(Rectangle())
+                                            .onTapGesture {
+                                                raceBeingEdited = race
+                                            }
                                         }
                                     }
                                     .padding(.bottom, 4)
@@ -479,6 +577,24 @@ struct MeView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Time zone code helper
+
+private func currentTimeZoneCode() -> String {
+    let abbr = TimeZone.current.abbreviation() ?? ""
+    switch abbr {
+    case "PST", "PDT":
+        return "PT"
+    case "MST", "MDT":
+        return "MT"
+    case "CST", "CDT":
+        return "CT"
+    case "EST", "EDT":
+        return "ET"
+    default:
+        return abbr
     }
 }
 
