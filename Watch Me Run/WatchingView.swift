@@ -7,6 +7,17 @@
 
 import SwiftUI
 
+struct FeaturedMeet: Identifiable, Hashable {
+    let id = UUID()
+    let key: String          // used to identify favorites
+    let topLabel: String     // text shown above the circle
+    let bottomLabel: String  // text shown below the circle
+
+    // Either use a custom asset image (imageName) or an SF Symbol (symbolName)
+    let symbolName: String?
+    let imageName: String?
+}
+
 struct WatchingView: View {
     // Placeholder local state for favorites until real data is wired in
     @State private var favoriteMeets: Set<String> = []
@@ -15,13 +26,79 @@ struct WatchingView: View {
     @State private var showingMeetsInfo: Bool = false
     @State private var showingProsInfo: Bool = false
     @State private var showingRunnersInfo: Bool = false
+    @State private var isFeaturedMeetsExpanded: Bool = false
 
-    private let featuredMeets: [String] = [
-        "NCAA D1 Indoor Championships",
-        "Olympic Games",
-        "NCAA D1 Outdoor Championships",
-        "World Championships",
-        "Olympic Trials"
+    private let featuredMeets: [FeaturedMeet] = [
+        FeaturedMeet(
+            key: "Olympic Games",
+            topLabel: "Olympic",
+            bottomLabel: "Games",
+            symbolName: nil,
+            imageName: "olympicRings"
+        ),
+        FeaturedMeet(
+            key: "World Championships",
+            topLabel: "World",
+            bottomLabel: "Champs",
+            symbolName: "trophy.fill",
+            imageName: nil
+        ),
+        FeaturedMeet(
+            key: "Diamond League",
+            topLabel: "Diamond",
+            bottomLabel: "League",
+            symbolName: "diamond.fill",
+            imageName: nil
+        ),
+        FeaturedMeet(
+            key: "US Olympic Trials",
+            topLabel: "US",
+            bottomLabel: "Trials",
+            symbolName: "flag.checkered",
+            imageName: nil
+        ),
+        FeaturedMeet(
+            key: "NCAA Cross Country Champs",
+            topLabel: "NCAA",
+            bottomLabel: "XC Champs",
+            symbolName: "figure.run",
+            imageName: nil
+        ),
+        FeaturedMeet(
+            key: "NCAA D1 Indoor Champs",
+            topLabel: "NCAA D1",
+            bottomLabel: "Indoors",
+            symbolName: "figure.run.circle",
+            imageName: nil
+        ),
+        FeaturedMeet(
+            key: "NCAA D1 Outdoor Champs",
+            topLabel: "NCAA D1",
+            bottomLabel: "Outdoors",
+            symbolName: "figure.run.circle.fill",
+            imageName: nil
+        ),
+        FeaturedMeet(
+            key: "US Indoor Champs",
+            topLabel: "US",
+            bottomLabel: "Indoors",
+            symbolName: "building.columns",
+            imageName: nil
+        ),
+        FeaturedMeet(
+            key: "US Outdoor Champs",
+            topLabel: "US",
+            bottomLabel: "Outdoors",
+            symbolName: "sun.max.fill",
+            imageName: nil
+        ),
+        FeaturedMeet(
+            key: "Millrose Games",
+            topLabel: "Millrose",
+            bottomLabel: "Games",
+            symbolName: "sparkles",
+            imageName: nil
+        )
     ]
 
     private let featuredPros: [String] = [
@@ -78,29 +155,30 @@ struct WatchingView: View {
                                 .foregroundColor(Color.wmrTextSecondary)
                         }
                         .buttonStyle(.plain)
+
+                        Spacer()
+
+                        Button {
+                            isFeaturedMeetsExpanded = true
+                        } label: {
+                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                .font(.caption)
+                                .padding(4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(Color.wmrSurfaceAlt.opacity(0.9))
+                                )
+                                .foregroundColor(Color.wmrTextSecondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Expand featured meets")
                     }
 
                     WatchingSectionCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(featuredMeets, id: \.self) { meet in
-                                WatchingRow(
-                                    title: meet,
-                                    isStarred: favoriteMeets.contains(meet),
-                                    onToggleStar: {
-                                        if favoriteMeets.contains(meet) {
-                                            favoriteMeets.remove(meet)
-                                        } else {
-                                            favoriteMeets.insert(meet)
-                                        }
-                                    }
-                                )
-
-                                if meet != featuredMeets.last {
-                                    Divider()
-                                        .background(Color.wmrBorderSubtle)
-                                }
-                            }
-                        }
+                        FeaturedMeetsScroller(
+                            meets: featuredMeets,
+                            favoriteMeets: $favoriteMeets
+                        )
                     }
                 }
                 .padding(.horizontal, 16)
@@ -196,6 +274,27 @@ struct WatchingView: View {
             .padding(.top, 16)
             .padding(.bottom, 32)
         }
+        .sheet(isPresented: $isFeaturedMeetsExpanded) {
+            NavigationStack {
+                ScrollView {
+                    FeaturedMeetsGrid(
+                        meets: featuredMeets,
+                        favoriteMeets: $favoriteMeets
+                    )
+                    .padding(16)
+                }
+                .background(Color.wmrBackground.ignoresSafeArea())
+                .navigationTitle("Featured Meets")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") {
+                            isFeaturedMeetsExpanded = false
+                        }
+                    }
+                }
+            }
+        }
         .alert("Featured Meets", isPresented: $showingMeetsInfo) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -229,7 +328,221 @@ struct WatchingSectionCard<Content: View>: View {
                 )
 
             content
-                .padding(14)
+                .padding(10)
+        }
+    }
+}
+
+struct FeaturedMeetsGrid: View {
+    let meets: [FeaturedMeet]
+    @Binding var favoriteMeets: Set<String>
+
+    private let columns: [GridItem] = [
+        GridItem(.flexible(), spacing: 8),
+        GridItem(.flexible(), spacing: 8),
+        GridItem(.flexible(), spacing: 8),
+        GridItem(.flexible(), spacing: 8)
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, alignment: .center, spacing: 12) {
+            ForEach(meets) { meet in
+                FeaturedMeetBubble(
+                    meet: meet,
+                    isStarred: favoriteMeets.contains(meet.key),
+                    onToggleStar: {
+                        if favoriteMeets.contains(meet.key) {
+                            favoriteMeets.remove(meet.key)
+                        } else {
+                            favoriteMeets.insert(meet.key)
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+// PreferenceKeys for scroll measurement
+private struct FeaturedMeetsContentWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 1
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct FeaturedMeetsScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+struct FeaturedMeetsScroller: View {
+    let meets: [FeaturedMeet]
+    @Binding var favoriteMeets: Set<String>
+
+    @State private var contentWidth: CGFloat = 1
+    @State private var scrollOffset: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geometry in
+            let bubbleWidth: CGFloat = min(80, geometry.size.width / 3.0)
+
+            VStack(spacing: 6) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 2) {
+                        ForEach(meets) { meet in
+                            FeaturedMeetBubble(
+                                meet: meet,
+                                isStarred: favoriteMeets.contains(meet.key),
+                                onToggleStar: {
+                                    if favoriteMeets.contains(meet.key) {
+                                        favoriteMeets.remove(meet.key)
+                                    } else {
+                                        favoriteMeets.insert(meet.key)
+                                    }
+                                }
+                            )
+                            .frame(width: bubbleWidth)
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                    .background(
+                        GeometryReader { innerGeo in
+                            let width = innerGeo.size.width
+                            // Offset of the content relative to the ScrollView's coordinate space
+                            let offset = -innerGeo.frame(in: .named("FeaturedMeetsScroll")).origin.x
+
+                            Color.clear
+                                .preference(key: FeaturedMeetsContentWidthKey.self, value: width)
+                                .preference(key: FeaturedMeetsScrollOffsetKey.self, value: offset)
+                        }
+                    )
+                }
+                .coordinateSpace(name: "FeaturedMeetsScroll")
+
+                // Small scroll position bar
+                let trackWidth = geometry.size.width * 0.45
+                let maxOffset = max(contentWidth - geometry.size.width, 1)
+                let rawProgress = maxOffset > 0 ? scrollOffset / maxOffset : 0
+                let progress = min(max(rawProgress, 0), 1)
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.wmrBorderSubtle.opacity(0.7))
+                        .frame(width: trackWidth, height: 3)
+
+                    // Thumb indicating approximate scroll position
+                    Capsule()
+                        .fill(Color.wmrAccentOrange.opacity(0.9))
+                        .frame(width: max(trackWidth * 0.15, trackWidth * 0.15),
+                               height: 3)
+                        .offset(x: trackWidth * progress)
+                }
+                .frame(height: 6)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .frame(height: 96)
+        .onPreferenceChange(FeaturedMeetsContentWidthKey.self) { newWidth in
+            contentWidth = newWidth
+        }
+        .onPreferenceChange(FeaturedMeetsScrollOffsetKey.self) { newOffset in
+            scrollOffset = newOffset
+        }
+    }
+}
+
+// Draws text along an arc with given radius and base angle, supporting clockwise/counterclockwise for correct orientation.
+struct ArcText: View {
+    let text: String
+    let radius: CGFloat
+    let baseAngle: Angle          // center angle of the arc (e.g., -90 for top, +90 for bottom)
+    let anglePerCharacter: Angle
+    let clockwise: Bool
+
+    init(text: String, radius: CGFloat, baseAngle: Angle, anglePerCharacter: Angle, clockwise: Bool = true) {
+        self.text = text
+        self.radius = radius
+        self.baseAngle = baseAngle
+        self.anglePerCharacter = anglePerCharacter
+        self.clockwise = clockwise
+    }
+
+    var body: some View {
+        let characters = Array(text)
+        return ZStack {
+            ForEach(characters.indices, id: \.self) { index in
+                let totalAngle = anglePerCharacter.degrees * Double(max(characters.count - 1, 0))
+                let halfSpan = totalAngle / 2.0
+
+                // For top text (clockwise = true), we sweep angles left-to-right.
+                // For bottom text (clockwise = false), we sweep the opposite way so text is not "backwards".
+                let startAngleDeg = baseAngle.degrees + (clockwise ? -halfSpan : halfSpan)
+                let step = clockwise ? anglePerCharacter.degrees : -anglePerCharacter.degrees
+                let currentAngle = Angle(degrees: startAngleDeg + Double(index) * step)
+
+                let char = String(characters[index])
+
+                Text(char)
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .foregroundColor(Color.wmrTextSecondary)
+                    .offset(
+                        x: CGFloat(cos(currentAngle.radians)) * radius,
+                        y: CGFloat(sin(currentAngle.radians)) * radius
+                    )
+                    // Rotate each character so it follows the tangent of the circle at its position
+                    .rotationEffect(currentAngle + .degrees(90))
+            }
+        }
+    }
+}
+
+struct FeaturedMeetBubble: View {
+    let meet: FeaturedMeet
+    let isStarred: Bool
+    let onToggleStar: () -> Void
+
+    var body: some View {
+        VStack(spacing: 4) {
+            // Top label in a straight line
+            Text(meet.topLabel)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundColor(Color.wmrTextSecondary)
+
+            ZStack {
+                Circle()
+                    .fill(Color.wmrSurfaceAlt)
+                    .overlay(
+                        Circle()
+                            .stroke(isStarred ? Color.wmrAccentOrange : Color.wmrBorderSubtle,
+                                    lineWidth: isStarred ? 2 : 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 3)
+
+                if let imageName = meet.imageName {
+                    Image(imageName)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(6)
+                } else if let symbolName = meet.symbolName {
+                    Image(systemName: symbolName)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(Color.wmrTextPrimary)
+                }
+            }
+            .frame(width: 64, height: 64)
+
+            // Bottom label in a straight line
+            Text(meet.bottomLabel)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundColor(Color.wmrTextSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onToggleStar()
         }
     }
 }
