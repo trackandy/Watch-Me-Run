@@ -82,7 +82,6 @@ struct MeView: View {
                         .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 6)
                 )
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
 
                 // MARK: - Account / Login
                 VStack(alignment: .leading, spacing: 12) {
@@ -562,7 +561,7 @@ struct MeView: View {
 
                 Spacer(minLength: 12)
             }
-            .padding(.top, 16)
+            .padding(.top, 8)
             .padding(.bottom, 32)
         }
         .sheet(isPresented: $isPresentingRaceInput) {

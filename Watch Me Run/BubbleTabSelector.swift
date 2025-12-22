@@ -26,38 +26,52 @@ private struct TrackTab: View {
     var body: some View {
         ZStack {
             if isSelected {
-                GeometryReader { proxy in
-                    let height = proxy.size.height
-                    let cornerRadius = height / 2
-                    let laneCount = 6
-                    let laneSpacing: CGFloat = 2
-                    let laneLineWidth: CGFloat = 1
-
-                    ZStack {
-                        ForEach(0..<laneCount, id: \.self) { lane in
-                            RoundedRectangle(cornerRadius: cornerRadius)
-                                .inset(by: CGFloat(lane) * (laneSpacing + laneLineWidth))
-                                .stroke(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [
-                                            Color.white.opacity(0.6),
-                                            Color.white.opacity(0.2)
-                                        ]),
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: laneLineWidth
-                                )
-                                .opacity(0.9 - Double(lane) * 0.12)
-                        }
-                    }
-                }
+                // Liquid glass pill for the active tab
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        // Subtle light border to give the glass edge definition
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.white.opacity(0.7),
+                                        Color.white.opacity(0.15)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                    .overlay(
+                        // Soft inner highlight near the top to sell the "liquid" feel
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                            .blur(radius: 2)
+                            .offset(y: -3)
+                            .mask(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .padding(.bottom, 10)
+                            )
+                    )
+            } else {
+                // Subtle pill for inactive tabs so the whole control feels cohesive
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white.opacity(0.04))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    )
             }
 
             Text(title)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .font(.system(size: 14, weight: isSelected ? .semibold : .regular, design: .rounded))
                 .foregroundColor(isSelected ? Color.wmrTextPrimary : Color.wmrTextSecondary)
                 .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
         }
         .frame(height: 32)
         .padding(.horizontal, 4)

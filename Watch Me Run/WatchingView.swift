@@ -27,6 +27,7 @@ struct WatchingView: View {
     @State private var showingProsInfo: Bool = false
     @State private var showingRunnersInfo: Bool = false
     @State private var isFeaturedMeetsExpanded: Bool = false
+    @State private var isFeaturedProsExpanded: Bool = false
 
     private let featuredMeets: [FeaturedMeet] = [
         FeaturedMeet(
@@ -106,12 +107,30 @@ struct WatchingView: View {
         "Grant Fisher",
         "Cole Hocker",
         "Faith Kipyegon",
-        "Keely Hodgkinson"
+        "Keely Hodgkinson",
+        "Sifan Hassan",
+        "Moh Ahmed",
+        "Yared Nuguse",
+        "Kenenisa Bekele",
+        "Lamecha Girma",
+        "Laura Muir",
+        "Emma Coburn",
+        "Karissa Schweizer",
+        "Abby Steiner",
+        "Athing Mu"
     ]
 
     private let placeholderRunners: [String] = [
-        "Joe Schmo 1",
-        "Joe Schmo 2"
+        "friends_slot_1",
+        "friends_slot_2",
+        "friends_slot_3",
+        "friends_slot_4",
+        "friends_slot_5",
+        "friends_slot_6",
+        "friends_slot_7",
+        "friends_slot_8",
+        "friends_slot_9",
+        "friends_slot_10"
     ]
 
     var body: some View {
@@ -120,7 +139,7 @@ struct WatchingView: View {
 
                 // MARK: - Header
                 HStack {
-                    Text("Get notified of meets and racers")
+                    Text("Get notified of meets, pros, and friends races")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundColor(Color.wmrTextPrimary)
 
@@ -138,7 +157,6 @@ struct WatchingView: View {
                         .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 6)
                 )
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
 
                 // MARK: - Meets Section
                 VStack(alignment: .leading, spacing: 12) {
@@ -183,7 +201,6 @@ struct WatchingView: View {
                 }
                 .padding(.horizontal, 16)
 
-                /*
                 // MARK: - Pros Section
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 6) {
@@ -199,38 +216,58 @@ struct WatchingView: View {
                                 .foregroundColor(Color.wmrTextSecondary)
                         }
                         .buttonStyle(.plain)
+
+                        Spacer()
+
+                        Button {
+                            isFeaturedProsExpanded = true
+                        } label: {
+                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                .font(.caption)
+                                .padding(4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(Color.wmrSurfaceAlt.opacity(0.9))
+                                )
+                                .foregroundColor(Color.wmrTextSecondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Expand featured pros")
                     }
 
                     WatchingSectionCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(featuredPros, id: \.self) { pro in
-                                WatchingRow(
-                                    title: pro,
-                                    isStarred: favoritePros.contains(pro),
-                                    onToggleStar: {
-                                        if favoritePros.contains(pro) {
-                                            favoritePros.remove(pro)
-                                        } else {
-                                            favoritePros.insert(pro)
+                        ScrollView(.vertical, showsIndicators: true) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(featuredPros, id: \.self) { pro in
+                                    WatchingRow(
+                                        title: pro,
+                                        isStarred: favoritePros.contains(pro),
+                                        onToggleStar: {
+                                            if favoritePros.contains(pro) {
+                                                favoritePros.remove(pro)
+                                            } else {
+                                                favoritePros.insert(pro)
+                                            }
                                         }
-                                    }
-                                )
+                                    )
 
-                                if pro != featuredPros.last {
-                                    Divider()
-                                        .background(Color.wmrBorderSubtle)
+                                    if pro != featuredPros.last {
+                                        Divider()
+                                            .background(Color.wmrBorderSubtle)
+                                    }
                                 }
                             }
+                            .padding(.vertical, 4)
                         }
+                        .frame(height: 190)
                     }
                 }
                 .padding(.horizontal, 16)
-                */
 
                 // MARK: - Runners Section
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 6) {
-                        Text("Runners")
+                        Text("Friends")
                             .font(.caption)
                             .foregroundColor(Color.wmrTextSecondary)
 
@@ -245,33 +282,41 @@ struct WatchingView: View {
                     }
 
                     WatchingSectionCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(placeholderRunners, id: \.self) { runner in
-                                WatchingRow(
-                                    title: runner,
-                                    isStarred: favoriteRunners.contains(runner),
-                                    onToggleStar: {
-                                        if favoriteRunners.contains(runner) {
-                                            favoriteRunners.remove(runner)
-                                        } else {
-                                            favoriteRunners.insert(runner)
-                                        }
-                                    }
-                                )
+                        ScrollView(.vertical, showsIndicators: true) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(Array(placeholderRunners.enumerated()), id: \.element) { index, runnerKey in
+                                    // First entry shows a helpful placeholder message,
+                                    // remaining entries are visually "blank" lines
+                                    let displayTitle = index == 0 ? "Add your first friends link" : ""
 
-                                if runner != placeholderRunners.last {
-                                    Divider()
-                                        .background(Color.wmrBorderSubtle)
+                                    WatchingRow(
+                                        title: displayTitle,
+                                        isStarred: favoriteRunners.contains(runnerKey),
+                                        onToggleStar: {
+                                            if favoriteRunners.contains(runnerKey) {
+                                                favoriteRunners.remove(runnerKey)
+                                            } else {
+                                                favoriteRunners.insert(runnerKey)
+                                            }
+                                        }
+                                    )
+
+                                    if runnerKey != placeholderRunners.last {
+                                        Divider()
+                                            .background(Color.wmrBorderSubtle)
+                                    }
                                 }
                             }
+                            .padding(.vertical, 4)
                         }
+                        .frame(height: 190)
                     }
                 }
                 .padding(.horizontal, 16)
 
                 Spacer(minLength: 12)
             }
-            .padding(.top, 16)
+            .padding(.top, 8)
             .padding(.bottom, 32)
         }
         .sheet(isPresented: $isFeaturedMeetsExpanded) {
@@ -295,6 +340,40 @@ struct WatchingView: View {
                 }
             }
         }
+        .sheet(isPresented: $isFeaturedProsExpanded) {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(featuredPros, id: \.self) { pro in
+                            WatchingRow(
+                                title: pro,
+                                isStarred: favoritePros.contains(pro),
+                                onToggleStar: {
+                                    if favoritePros.contains(pro) {
+                                        favoritePros.remove(pro)
+                                    } else {
+                                        favoritePros.insert(pro)
+                                    }
+                                }
+                            )
+                            Divider()
+                                .background(Color.wmrBorderSubtle)
+                        }
+                    }
+                    .padding(16)
+                }
+                .background(Color.wmrBackground.ignoresSafeArea())
+                .navigationTitle("Featured Pros")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") {
+                            isFeaturedProsExpanded = false
+                        }
+                    }
+                }
+            }
+        }
         .alert("Featured Meets", isPresented: $showingMeetsInfo) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -305,7 +384,7 @@ struct WatchingView: View {
         } message: {
             Text("Select your favorite pros to never miss them race! Login on the Me tab in order for the app to save your selections.")
         }
-        .alert("Runners", isPresented: $showingRunnersInfo) {
+        .alert("Friends", isPresented: $showingRunnersInfo) {
             Button("OK", role: .cancel) { }
         } message: {
             Text("Watch your friends race! Note that their racing schedules are input by the individuals themselves.")

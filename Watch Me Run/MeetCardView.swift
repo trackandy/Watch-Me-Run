@@ -43,33 +43,33 @@ struct MeetCardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Name
+        VStack(alignment: .leading, spacing: 6) {
+            // Name at the top
             Text(meet.name)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
                 .foregroundColor(theme.accent)
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
 
-            // Start day, e.g. "Wednesday, Dec 10th"
+            Spacer()
+
+            // Start day sits just above the buttons
             Text(startDayText)
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundColor(theme.accent.opacity(0.85))
-
-            Spacer()
 
             // Live / Watch buttons
             HStack(spacing: 8) {
                 if let liveURL = meet.liveResultsURL {
                     LinkButton(label: "Live",
-                               systemImage: "chart.bar.xaxis",
+                               systemImage: "list.number",   // results-style icon
                                url: liveURL,
                                accentColor: theme.accent)
                 }
 
                 if let watchURL = meet.watchURL {
                     LinkButton(label: "Watch",
-                               systemImage: "play.circle",
+                               systemImage: "tv",           // TV icon to match Me tab
                                url: watchURL,
                                accentColor: theme.accent)
                 }
@@ -96,8 +96,8 @@ struct MeetCardView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(theme.accent.opacity(0.7), lineWidth: 1)
         )
-        .shadow(color: theme.background.opacity(0.8), radius: 6, x: 0, y: 4)
-        .aspectRatio(1, contentMode: .fit)   // make the card a square within the grid cell
+        .shadow(color: theme.background.opacity(0.55), radius: 4, x: 0, y: 3)
+        .frame(width: 140, height: 140)   // slightly larger square
     }
 
     private static func daySuffix(for day: Int) -> String {

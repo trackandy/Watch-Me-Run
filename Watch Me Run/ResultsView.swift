@@ -12,13 +12,6 @@ struct ResultsView: View {
 
     private let gridSpacing: CGFloat = 16
 
-    private var columns: [GridItem] {
-        [
-            GridItem(.flexible(), spacing: gridSpacing),
-            GridItem(.flexible(), spacing: gridSpacing)
-        ]
-    }
-
     var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 8) {
@@ -44,20 +37,42 @@ struct ResultsView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
+                Text("Live Results and Stream Links")
+                    .font(.system(size: 12, weight: .regular, design: .rounded))
+                    .foregroundColor(Color.wmrTextSecondary)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 4)
+
                 if store.currentMeets.isEmpty {
                     Text("No current meets")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
-                        .padding(.top, 8)
+                        .padding(.top, 4)
                 } else {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: gridSpacing) {
-                        ForEach(store.currentMeets) { meet in
-                            MeetCardView(meet: meet)
+                    GeometryReader { geo in
+                        let totalWidth = geo.size.width
+                        let cardWidth: CGFloat = 140
+                        // gutter = left gap = middle gap = right gap
+                        let gutter = max((totalWidth - 2 * cardWidth) / 3, 0)
+
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.fixed(cardWidth), spacing: gutter),
+                                GridItem(.fixed(cardWidth), spacing: gutter)
+                            ],
+                            alignment: .leading,
+                            spacing: gridSpacing // vertical spacing between rows
+                        ) {
+                            ForEach(store.currentMeets) { meet in
+                                MeetCardView(meet: meet)
+                            }
                         }
+                        .padding(.horizontal, gutter)
+                        .padding(.top, 8)
+                        .padding(.bottom, gridSpacing)
                     }
-                    .padding(.horizontal, gridSpacing)
-                    .padding(.vertical, gridSpacing)
+                    .frame(maxWidth: .infinity, minHeight: 0)
                 }
             }
         }
