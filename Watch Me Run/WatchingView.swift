@@ -28,6 +28,10 @@ struct WatchingView: View {
     @State private var showingRunnersInfo: Bool = false
     @State private var isFeaturedMeetsExpanded: Bool = false
     @State private var isFeaturedProsExpanded: Bool = false
+    @State private var isFriendsExpanded: Bool = false
+    @State private var selectedRunnerName: String? = nil
+    @State private var selectedRunnerIsPro: Bool = true
+    @State private var isShowingRunnerDetail: Bool = false
 
     private let featuredMeets: [FeaturedMeet] = [
         FeaturedMeet(
@@ -248,6 +252,11 @@ struct WatchingView: View {
                                             } else {
                                                 favoritePros.insert(pro)
                                             }
+                                        },
+                                        onRowTap: {
+                                            selectedRunnerName = pro
+                                            selectedRunnerIsPro = true
+                                            isShowingRunnerDetail = true
                                         }
                                     )
 
@@ -279,6 +288,23 @@ struct WatchingView: View {
                                 .foregroundColor(Color.wmrTextSecondary)
                         }
                         .buttonStyle(.plain)
+
+                        Spacer()
+
+                        Button {
+                            isFriendsExpanded = true
+                        } label: {
+                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                .font(.caption)
+                                .padding(4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(Color.wmrSurfaceAlt.opacity(0.9))
+                                )
+                                .foregroundColor(Color.wmrTextSecondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Expand friends")
                     }
 
                     WatchingSectionCard {
@@ -298,6 +324,13 @@ struct WatchingView: View {
                                             } else {
                                                 favoriteRunners.insert(runnerKey)
                                             }
+                                        },
+                                        onRowTap: {
+                                            // Only show a detail card if we actually have a non-empty title to show
+                                            guard !displayTitle.isEmpty else { return }
+                                            selectedRunnerName = displayTitle
+                                            selectedRunnerIsPro = false
+                                            isShowingRunnerDetail = true
                                         }
                                     )
 
@@ -354,6 +387,11 @@ struct WatchingView: View {
                                     } else {
                                         favoritePros.insert(pro)
                                     }
+                                },
+                                onRowTap: {
+                                    selectedRunnerName = pro
+                                    selectedRunnerIsPro = true
+                                    isShowingRunnerDetail = true
                                 }
                             )
                             Divider()
@@ -373,6 +411,92 @@ struct WatchingView: View {
                     }
                 }
             }
+        }
+        .sheet(isPresented: $isFriendsExpanded) {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(Array(placeholderRunners.enumerated()), id: \.element) { index, runnerKey in
+                            let displayTitle = index == 0 ? "Add your first friends link" : ""
+
+                            WatchingRow(
+                                title: displayTitle,
+                                isStarred: favoriteRunners.contains(runnerKey),
+                                onToggleStar: {
+                                    if favoriteRunners.contains(runnerKey) {
+                                        favoriteRunners.remove(runnerKey)
+                                    } else {
+                                        favoriteRunners.insert(runnerKey)
+                                    }
+                                },
+                                onRowTap: {
+                                    guard !displayTitle.isEmpty else { return }
+                                    selectedRunnerName = displayTitle
+                                    selectedRunnerIsPro = false
+                                    isShowingRunnerDetail = true
+                                }
+                            )
+
+                            Divider()
+                                .background(Color.wmrBorderSubtle)
+                        }
+                    }
+                    .padding(16)
+                }
+                .background(Color.wmrBackground.ignoresSafeArea())
+                .navigationTitle("Friends")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") {
+                            isFriendsExpanded = false
+                        }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingRunnerDetail) {
+            Group {
+                if let name = selectedRunnerName {
+                    // Binding that keeps the sheet's Watching toggle in sync with the list star state
+                    let isWatchingBinding: Binding<Bool> = Binding(
+                        get: {
+                            if selectedRunnerIsPro {
+                                return favoritePros.contains(name)
+                            } else {
+                                return favoriteRunners.contains(name)
+                            }
+                        },
+                        set: { newValue in
+                            if selectedRunnerIsPro {
+                                if newValue {
+                                    favoritePros.insert(name)
+                                } else {
+                                    favoritePros.remove(name)
+                                }
+                            } else {
+                                if newValue {
+                                    favoriteRunners.insert(name)
+                                } else {
+                                    favoriteRunners.remove(name)
+                                }
+                            }
+                        }
+                    )
+
+                    // Placeholder race arrays for now; can be wired to real data later
+                    RunnerDetailView(
+                        name: name,
+                        isWatching: isWatchingBinding,
+                        upcomingRaces: [],
+                        pastRaces: []
+                    )
+                } else {
+                    Text("No runner selected")
+                        .padding()
+                }
+            }
+            .presentationDetents([.fraction(0.5)])
         }
         .alert("Featured Meets", isPresented: $showingMeetsInfo) {
             Button("OK", role: .cancel) { }
@@ -630,6 +754,7 @@ struct WatchingRow: View {
     let title: String
     let isStarred: Bool
     let onToggleStar: () -> Void
+    let onRowTap: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -638,13 +763,31 @@ struct WatchingRow: View {
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundColor(Color.wmrTextPrimary)
             }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                onRowTap()
+            }
 
             Spacer()
 
             Button(action: onToggleStar) {
-                Image(systemName: isStarred ? "star.fill" : "star")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(isStarred ? Color.wmrAccentOrange : Color.wmrTextSecondary)
+                HStack(spacing: 6) {
+                    Image(systemName: isStarred ? "star.fill" : "star")
+                        .font(.system(size: 14, weight: .semibold))
+
+                    Text("Watching")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                }
+                .foregroundColor(isStarred ? Color.wmrAccentOrange : Color.wmrTextSecondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(
+                            isStarred ? Color.wmrAccentOrange : Color.wmrBorderSubtle,
+                            lineWidth: 1
+                        )
+                )
             }
             .buttonStyle(.plain)
         }
