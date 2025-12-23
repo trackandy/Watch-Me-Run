@@ -43,13 +43,14 @@ struct MeetCardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             // Name at the top
             Text(meet.name)
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .foregroundColor(theme.accent)
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
+                .layoutPriority(1)
 
             Spacer()
 
@@ -58,25 +59,33 @@ struct MeetCardView: View {
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundColor(theme.accent.opacity(0.85))
 
-            // Live / Watch buttons
-            HStack(spacing: 8) {
+            // Live / Stream / Event Home buttons, evenly distributed left–center–right if present
+            HStack(spacing: 0) {
                 if let liveURL = meet.liveResultsURL {
                     LinkButton(label: "Live",
                                systemImage: "list.number",   // results-style icon
                                url: liveURL,
                                accentColor: theme.accent)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 if let watchURL = meet.watchURL {
-                    LinkButton(label: "Watch",
+                    LinkButton(label: "Stream",
                                systemImage: "tv",           // TV icon to match Me tab
                                url: watchURL,
                                accentColor: theme.accent)
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
 
-                Spacer()
+                if let homeURL = meet.meetHomeURL {
+                    LinkButton(label: "Home",
+                               systemImage: "house",
+                               url: homeURL,
+                               accentColor: theme.accent)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
             }
-            .padding(.top, 4)
+            .padding(.top, 1)
         }
         .padding(10)
         .background(
@@ -97,7 +106,7 @@ struct MeetCardView: View {
                 .stroke(theme.accent.opacity(0.7), lineWidth: 1)
         )
         .shadow(color: theme.background.opacity(0.55), radius: 4, x: 0, y: 3)
-        .frame(width: 140, height: 140)   // slightly larger square
+        .frame(width: 140, height: 150)
     }
 
     private static func daySuffix(for day: Int) -> String {
@@ -169,10 +178,10 @@ struct LinkButton: View {
     var body: some View {
         Link(destination: url) {
             Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(accentColor)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.vertical, 7)
                 .background(
                     Capsule()
                         .fill(accentColor.opacity(0.16))
@@ -190,6 +199,7 @@ struct MeetCardView_Previews: PreviewProvider {
             date: Date(),
             name: "NCAA D1 Championships",
             level: "Collegiate",
+            meetHomeURL: nil,
             priority: .high,
             liveResultsURL: URL(string: "https://example.com/live"),
             watchURL: URL(string: "https://example.com/watch")

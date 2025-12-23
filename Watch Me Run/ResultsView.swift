@@ -17,7 +17,7 @@ struct ResultsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 // Section header for current meets, sitting on a raised platform
                 HStack {
-                    Text("Current Meets")
+                    Text("Current Events")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundColor(Color.wmrTextPrimary)
 
@@ -37,7 +37,7 @@ struct ResultsView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
-                Text("Live Results and Stream Links")
+                Text("Live Results, Stream Links, and Event Home Pages")
                     .font(.system(size: 12, weight: .regular, design: .rounded))
                     .foregroundColor(Color.wmrTextSecondary)
                     .padding(.horizontal, 24)
@@ -56,6 +56,14 @@ struct ResultsView: View {
                         // gutter = left gap = middle gap = right gap
                         let gutter = max((totalWidth - 2 * cardWidth) / 3, 0)
 
+                        let sortedMeets = store.currentMeets.sorted {
+                            if $0.priority != $1.priority {
+                                return $0.priority.rawValue < $1.priority.rawValue
+                            } else {
+                                return $0.date < $1.date
+                            }
+                        }
+
                         LazyVGrid(
                             columns: [
                                 GridItem(.fixed(cardWidth), spacing: gutter),
@@ -64,7 +72,7 @@ struct ResultsView: View {
                             alignment: .leading,
                             spacing: gridSpacing // vertical spacing between rows
                         ) {
-                            ForEach(store.currentMeets) { meet in
+                            ForEach(sortedMeets) { meet in
                                 MeetCardView(meet: meet)
                             }
                         }

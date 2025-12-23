@@ -39,6 +39,7 @@ struct Meet: Identifiable {
     let date: Date
     let name: String
     let level: String
+    let meetHomeURL: URL?
     let priority: MeetPriority
     let liveResultsURL: URL?
     let watchURL: URL?
@@ -108,8 +109,18 @@ extension Meet {
         // Optional fields
         let level = data["level"] as? String ?? ""
 
-        let priorityRaw = data["priority"] as? Int ?? 2
-        let priority = MeetPriority(rawValue: priorityRaw) ?? .medium
+        // Priority can come from Firestore as an Int (1,2,3) or a String ("1","2","3")
+        let priorityValue: Int
+        if let intVal = data["priority"] as? Int {
+            priorityValue = intVal
+        } else if let stringVal = data["priority"] as? String,
+                  let parsed = Int(stringVal.trimmingCharacters(in: .whitespacesAndNewlines)) {
+            priorityValue = parsed
+        } else {
+            priorityValue = 2  // default to medium if missing or malformed
+        }
+
+        let priority = MeetPriority(rawValue: priorityValue) ?? .medium
 
         func url(from key: String) -> URL? {
             guard let s = data[key] as? String else { return nil }
@@ -118,6 +129,7 @@ extension Meet {
             return URL(string: trimmed)
         }
 
+        let homeURL = url(from: "meet_home")
         let liveURL = url(from: "live_results")
         let watchURL = url(from: "stream")
 
@@ -125,6 +137,7 @@ extension Meet {
             date: date,
             name: name,
             level: level,
+            meetHomeURL: homeURL,
             priority: priority,
             liveResultsURL: liveURL,
             watchURL: watchURL
@@ -203,6 +216,7 @@ struct MeetCSVParser {
                 date: date,
                 name: name,
                 level: level,
+                meetHomeURL: nil,
                 priority: priority,
                 liveResultsURL: liveURL,
                 watchURL: watchURL
@@ -260,6 +274,7 @@ struct SampleData {
                 date: date(-10),
                 name: "NCAA D1 Regionals",
                 level: "Collegiate",
+                meetHomeURL: nil,
                 priority: .high,
                 liveResultsURL: URL(string: "https://example.com/ncaa-regionals-live"),
                 watchURL: URL(string: "https://example.com/ncaa-regionals-watch")
@@ -268,6 +283,7 @@ struct SampleData {
                 date: date(-1),
                 name: "Foot Locker Nationals",
                 level: "High School",
+                meetHomeURL: nil,
                 priority: .medium,
                 liveResultsURL: URL(string: "https://example.com/footlocker-live"),
                 watchURL: URL(string: "https://example.com/footlocker-watch")
@@ -276,6 +292,7 @@ struct SampleData {
                 date: date(0),
                 name: "NYC Holiday Classic",
                 level: "Club",
+                meetHomeURL: nil,
                 priority: .low,
                 liveResultsURL: URL(string: "https://example.com/nyc-holiday-live"),
                 watchURL: nil
@@ -284,6 +301,7 @@ struct SampleData {
                 date: date(4),
                 name: "USATF Winter Invite",
                 level: "Professional",
+                meetHomeURL: nil,
                 priority: .medium,
                 liveResultsURL: URL(string: "https://example.com/usatf-winter-live"),
                 watchURL: URL(string: "https://example.com/usatf-winter-watch")
@@ -292,6 +310,7 @@ struct SampleData {
                 date: date(10),
                 name: "National Indoor Grand Prix",
                 level: "Professional",
+                meetHomeURL: nil,
                 priority: .high,
                 liveResultsURL: URL(string: "https://example.com/indoor-gp-live"),
                 watchURL: URL(string: "https://example.com/indoor-gp-watch")
