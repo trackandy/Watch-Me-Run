@@ -32,10 +32,10 @@ private let userRaceDateTimeFormatter: DateFormatter = {
 
 struct MeView: View {
     @EnvironmentObject var authManager: AuthManager
+    @EnvironmentObject var raceStore: UserRaceStore
     @Environment(\.openURL) private var openURL
     @State private var isPresentingRaceInput = false
     @State private var currentNonce: String?
-    @State private var userRaces: [UserRace] = []
     @State private var raceBeingEdited: UserRace?
 
     private var isLoggedIn: Bool {
@@ -47,13 +47,13 @@ struct MeView: View {
     }
 
     private var upcomingRaces: [UserRace] {
-        userRaces
+        raceStore.races
             .filter { !$0.isInPast }
             .sorted { $0.date > $1.date }
     }
 
     private var pastRaces: [UserRace] {
-        userRaces
+        raceStore.races
             .filter { $0.isInPast }
             .sorted { $0.date > $1.date }
     }
@@ -566,13 +566,25 @@ struct MeView: View {
         }
         .sheet(isPresented: $isPresentingRaceInput) {
             RaceInputSheet { newRace in
-                userRaces.append(newRace)
+                guard let uid = authManager.firebaseUser?.uid else {
+                    print("❌ Cannot save race: user is not logged in in MeView.onSave")
+                    return
+                }
+                print("➡️ MeView.onSave: attempting to save new race \(newRace.id) for uid \(uid)")
+                Task {
+                    await raceStore.addOrUpdate(newRace, for: uid)
+                }
             }
         }
         .sheet(item: $raceBeingEdited) { race in
             RaceInputSheet(existingRace: race) { updatedRace in
-                if let index = userRaces.firstIndex(where: { $0.id == updatedRace.id }) {
-                    userRaces[index] = updatedRace
+                guard let uid = authManager.firebaseUser?.uid else {
+                    print("❌ Cannot save race: user is not logged in in MeView.editSave")
+                    return
+                }
+                print("➡️ MeView.editSave: attempting to save updated race \(updatedRace.id) for uid \(uid)")
+                Task {
+                    await raceStore.addOrUpdate(updatedRace, for: uid)
                 }
             }
         }
@@ -781,6 +793,7 @@ struct MeView_Previews: PreviewProvider {
     static var previews: some View {
         MeView()
             .environmentObject(AuthManager())
+            .environmentObject(UserRaceStore())
             .environment(\.colorScheme, .dark)
             .background(Color.wmrBackground)
     }
