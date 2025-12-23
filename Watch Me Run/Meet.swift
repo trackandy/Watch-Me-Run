@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import FirebaseFirestore
 
 // MARK: - Priority & Status
 
@@ -50,8 +51,8 @@ struct Meet: Identifiable {
         let now = Date()
         let calendar = Calendar.current
 
-        let sixDaysAgo = calendar.date(byAdding: .day, value: -6, to: now)!
-        let threeDaysAhead = calendar.date(byAdding: .day, value: 3, to: now)!
+        let sixDaysAgo = calendar.date(byAdding: .day, value: -50, to: now)!
+        let threeDaysAhead = calendar.date(byAdding: .day, value: 50, to: now)!
 
         if date < sixDaysAgo {
             // More than 6 days before today
@@ -63,6 +64,71 @@ struct Meet: Identifiable {
             // Between 6 days ago and 3 days ahead (inclusive)
             return .current
         }
+    }
+}
+
+// MARK: - Firestore Mapping
+
+extension Meet {
+    /// Initialize a Meet from a Firestore document in the "results" collection.
+    /// Expected fields:
+    /// - name: String
+    /// - start: Timestamp (preferred) or String (fallback)
+    /// - level: String (optional, defaults to "")
+    /// - priority: Int (optional, defaults to 2 / .medium)
+    /// - live_results: String (optional URL)
+    /// - stream: String (optional URL)
+    init?(from document: DocumentSnapshot) {
+        let data = document.data() ?? [:]
+
+        // Required fields
+        guard let name = data["name"] as? String else {
+            print("⚠️ Firestore Meet missing 'name' field in document \(document.documentID)")
+            return nil
+        }
+
+        // Handle `start` as a Timestamp (preferred) or as a String fallback.
+        var parsedDate: Date? = nil
+
+        if let ts = data["start"] as? Timestamp {
+            parsedDate = ts.dateValue()
+        } else if let dateString = data["start"] as? String {
+            let df = DateFormatter()
+            df.locale = Locale(identifier: "en_US_POSIX")
+            // Match the same pattern you used in CSV, e.g. "M/d/yy" or adjust as needed.
+            df.dateFormat = "M/d/yy"
+            parsedDate = df.date(from: dateString)
+        }
+
+        guard let date = parsedDate else {
+            print("⚠️ Firestore Meet could not parse 'start' date in document \(document.documentID)")
+            return nil
+        }
+
+        // Optional fields
+        let level = data["level"] as? String ?? ""
+
+        let priorityRaw = data["priority"] as? Int ?? 2
+        let priority = MeetPriority(rawValue: priorityRaw) ?? .medium
+
+        func url(from key: String) -> URL? {
+            guard let s = data[key] as? String else { return nil }
+            let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            return URL(string: trimmed)
+        }
+
+        let liveURL = url(from: "live_results")
+        let watchURL = url(from: "stream")
+
+        self.init(
+            date: date,
+            name: name,
+            level: level,
+            priority: priority,
+            liveResultsURL: liveURL,
+            watchURL: watchURL
+        )
     }
 }
 

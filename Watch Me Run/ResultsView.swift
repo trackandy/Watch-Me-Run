@@ -76,6 +76,9 @@ struct ResultsView: View {
                 }
             }
         }
+        .onAppear {
+            store.loadResultsFromFirebase()
+        }
     }
 }
 

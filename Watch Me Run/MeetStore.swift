@@ -8,10 +8,13 @@
 import Foundation
 import Combine
 import SwiftUI
+import FirebaseFirestore
 
 @MainActor
 final class MeetStore: ObservableObject {
     @Published var meets: [Meet] = []
+
+    private let db = Firestore.firestore()
 
     private var timerCancellable: AnyCancellable?
 
@@ -80,5 +83,35 @@ final class MeetStore: ObservableObject {
             .sink { [weak self] _ in
                 self?.loadMeets()
             }
+    }
+
+    // MARK: - Firebase Loading (Results)
+
+    /// Temporary helper to verify we can read from the "results" collection in Firestore.
+    /// Next step: map these documents into `Meet` instances and assign to `meets`.
+    func loadResultsFromFirebase() {
+        db.collection("results").getDocuments { [weak self] snapshot, error in
+            if let error = error {
+                print("⚠️ Error loading results from Firestore: \(error)")
+                return
+            }
+
+            guard let self = self else { return }
+
+            guard let documents = snapshot?.documents else {
+                print("⚠️ No documents found in 'results' collection")
+                Task { @MainActor in
+                    self.meets = []
+                }
+                return
+            }
+
+            let loadedMeets = documents.compactMap { Meet(from: $0) }
+
+            Task { @MainActor in
+                self.meets = loadedMeets
+                print("✅ Loaded \(loadedMeets.count) meets from Firestore 'results'")
+            }
+        }
     }
 }
