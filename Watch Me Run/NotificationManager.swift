@@ -1,4 +1,3 @@
-
 //  NotificationManager.swift
 //  Watch Me Run
 //
@@ -57,9 +56,9 @@ final class NotificationManager {
         }
     }
 
-    // MARK: - Pre-race details reminder (6 hours before)
+    // MARK: - Pre-race details reminder
 
-    /// Schedule a local notification to remind the race owner 6 hours before the race
+    /// Schedule a local notification to remind the race owner some hours before the race
     /// to double-check their race details (start time, links, etc.).
     ///
     /// - Parameters:
@@ -67,14 +66,16 @@ final class NotificationManager {
     ///   - raceName: Name of the race, used in the notification text.
     ///   - raceStartDate: Exact start date/time of the race in the user's current time zone.
     ///   - ownerUID: Firebase UID of the race owner; used to namespace identifiers per user.
+    ///   - hoursBefore: How many hours before the race start the reminder should fire.
     func schedulePreRaceDetailsReminder(
         raceID: String,
         raceName: String,
         raceStartDate: Date,
-        ownerUID: String
+        ownerUID: String,
+        hoursBefore: Int
     ) {
-        // Compute the reminder time: 6 hours before the race start.
-        let reminderDate = raceStartDate.addingTimeInterval(-6 * 60 * 60)
+        let safeHours = max(1, hoursBefore)
+        let reminderDate = raceStartDate.addingTimeInterval(-Double(safeHours) * 60 * 60)
         let now = Date()
 
         // If the reminder time is already in the past, skip scheduling.
@@ -86,7 +87,7 @@ final class NotificationManager {
         // Build the notification content.
         let content = UNMutableNotificationContent()
         content.title = "Race coming up"
-        content.body = "\(raceName) begins in 6 hours! Please make sure to update your race information so friends can follow along."
+        content.body = "\(raceName) is coming up soon! Please make sure to update your race information so friends can follow along."
         content.sound = .default
 
         // Translate reminderDate into calendar components for a non-repeating trigger.
@@ -102,7 +103,7 @@ final class NotificationManager {
             if let error = error {
                 print("❌ Failed to schedule pre-race details reminder for \(raceName): \(error)")
             } else {
-                print("✅ Scheduled pre-race details reminder for \(raceName) at \(reminderDate)")
+                print("✅ Scheduled pre-race details reminder for \(raceName) at \(reminderDate) (\(safeHours)h before)")
             }
         }
     }
@@ -120,4 +121,3 @@ final class NotificationManager {
         return "race-\(ownerUID)-\(raceID)-details6h"
     }
 }
-

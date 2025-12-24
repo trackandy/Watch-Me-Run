@@ -38,6 +38,10 @@ struct MeView: View {
     @State private var currentNonce: String?
     @State private var raceBeingEdited: UserRace?
 
+    // Notification settings for this user (owner / my races)
+    @AppStorage("ownerPreRaceReminderEnabled") private var ownerPreRaceEnabled: Bool = true
+    @AppStorage("ownerPreRaceHoursBefore") private var ownerPreRaceHoursBefore: Int = 6
+
     private var isLoggedIn: Bool {
         authManager.isLoggedIn
     }
@@ -583,20 +587,28 @@ struct MeView: View {
                     // First, persist the race to Firestore via the store
                     await raceStore.addOrUpdate(newRace, for: uid)
 
-                    // Then, request notification authorization if needed and schedule
-                    let granted = await NotificationManager.shared.requestAuthorizationIfNeeded()
-                    if granted {
-                        // Cancel any existing reminder for this race (if it somehow existed)
+                    // Then, handle the optional pre-race reminder based on settings
+                    if ownerPreRaceEnabled {
+                        let granted = await NotificationManager.shared.requestAuthorizationIfNeeded()
+                        if granted {
+                            // Cancel any existing reminder for this race (if it somehow existed)
+                            NotificationManager.shared.cancelPreRaceDetailsReminder(
+                                raceID: newRace.id,
+                                ownerUID: uid
+                            )
+                            let hoursBefore = max(1, ownerPreRaceHoursBefore)
+                            NotificationManager.shared.schedulePreRaceDetailsReminder(
+                                raceID: newRace.id,
+                                raceName: newRace.name,
+                                raceStartDate: newRace.date,
+                                ownerUID: uid,
+                                hoursBefore: hoursBefore
+                            )
+                        }
+                    } else {
+                        // If the user turned off this reminder, make sure any old one is cancelled
                         NotificationManager.shared.cancelPreRaceDetailsReminder(
                             raceID: newRace.id,
-                            ownerUID: uid
-                        )
-
-                        // Schedule the 6-hours-before "check your race details" reminder
-                        NotificationManager.shared.schedulePreRaceDetailsReminder(
-                            raceID: newRace.id,
-                            raceName: newRace.name,
-                            raceStartDate: newRace.date,
                             ownerUID: uid
                         )
                     }
@@ -614,18 +626,26 @@ struct MeView: View {
                     // Persist the updated race first
                     await raceStore.addOrUpdate(updatedRace, for: uid)
 
-                    // Refresh the 6-hours-before reminder for this race
-                    let granted = await NotificationManager.shared.requestAuthorizationIfNeeded()
-                    if granted {
+                    // Refresh or cancel the pre-race reminder according to settings
+                    if ownerPreRaceEnabled {
+                        let granted = await NotificationManager.shared.requestAuthorizationIfNeeded()
+                        if granted {
+                            NotificationManager.shared.cancelPreRaceDetailsReminder(
+                                raceID: updatedRace.id,
+                                ownerUID: uid
+                            )
+                            let hoursBefore = max(1, ownerPreRaceHoursBefore)
+                            NotificationManager.shared.schedulePreRaceDetailsReminder(
+                                raceID: updatedRace.id,
+                                raceName: updatedRace.name,
+                                raceStartDate: updatedRace.date,
+                                ownerUID: uid,
+                                hoursBefore: hoursBefore
+                            )
+                        }
+                    } else {
                         NotificationManager.shared.cancelPreRaceDetailsReminder(
                             raceID: updatedRace.id,
-                            ownerUID: uid
-                        )
-
-                        NotificationManager.shared.schedulePreRaceDetailsReminder(
-                            raceID: updatedRace.id,
-                            raceName: updatedRace.name,
-                            raceStartDate: updatedRace.date,
                             ownerUID: uid
                         )
                     }

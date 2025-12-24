@@ -18,9 +18,28 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("filterSearchDockSide") private var dockSideRaw: String = DockSide.right.rawValue
 
+    // Owner (my races) notification settings
+    @AppStorage("ownerPreRaceReminderEnabled") private var ownerPreRaceEnabled: Bool = true
+    @AppStorage("ownerPreRaceHoursBefore") private var ownerPreRaceHoursBefore: Int = 6
+
+    // Watching (fans/friends) notification settings
+    @AppStorage("watchingRemindersEnabled") private var watchingRemindersEnabled: Bool = true
+    @AppStorage("watchingFirstMinutesBefore") private var watchingFirstMinutesBefore: Int = 20   // 0 = none
+    @AppStorage("watchingSecondMinutesBefore") private var watchingSecondMinutesBefore: Int = 0   // 0 = none
+
+    // Local UI state for pickers
+    @State private var isShowingOwnerHoursPicker: Bool = false
+    @State private var isShowingFirstMinutesPicker: Bool = false
+    @State private var isShowingSecondHoursPicker: Bool = false
+
     private var dockSide: DockSide {
         DockSide(rawValue: dockSideRaw) ?? .right
     }
+
+    // Options for the pickers
+    private let ownerHoursOptions: [Int] = [6, 12, 18, 24]
+    private let watchingFirstMinutesOptions: [Int] = [0, 5, 10, 20, 30, 60] // minutes, 0 = None
+    private let watchingSecondHoursOptions: [Int] = [0, 6, 12, 24, 48]       // hours, 0 = None
 
     var body: some View {
         NavigationStack {
@@ -70,59 +89,123 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundColor(Color.wmrTextSecondary)
 
-                    VStack(spacing: 12) {
-                        HStack(spacing: 16) {
-                            // 1st notification
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("1st notification")
-                                    .font(.footnote)
-                                    .foregroundColor(Color.wmrTextSecondary)
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Owner / my races
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("For my races")
+                                .font(.footnote)
+                                .foregroundColor(Color.wmrTextSecondary)
 
-                                Button {
-                                    // TODO: Present timing picker for 1st notification
-                                } label: {
-                                    Text("20 minutes")
-                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 8)
-                                        .frame(maxWidth: .infinity)
-                                        .background(
-                                            Capsule()
-                                                .fill(Color.wmrAccentBlue.opacity(0.25))
-                                        )
-                                        .foregroundColor(.white)
-                                }
-                                .buttonStyle(.plain)
+                            HStack(spacing: 12) {
+                                Text("Race setup reminder")
+                                    .font(.footnote)
+                                    .foregroundColor(Color.wmrTextPrimary)
+
+                                Spacer()
+
+                                Toggle("", isOn: $ownerPreRaceEnabled)
+                                    .labelsHidden()
                             }
 
-                            // 2nd notification
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("2nd notification")
-                                    .font(.footnote)
-                                    .foregroundColor(Color.wmrTextSecondary)
-
-                                Button {
-                                    // TODO: Present timing picker for 2nd notification
-                                } label: {
-                                    Text("")
-                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 8)
-                                        .frame(maxWidth: .infinity)
-                                        .background(
-                                            Capsule()
-                                                .fill(Color.white.opacity(0.06))
-                                        )
-                                        .foregroundColor(Color.wmrTextSecondary)
-                                }
-                                .buttonStyle(.plain)
+                            Button {
+                                isShowingOwnerHoursPicker = true
+                            } label: {
+                                Text(ownerPreRaceLabel)
+                                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .frame(maxWidth: .infinity)
+                                    .background(
+                                        Capsule()
+                                            .fill(ownerPreRaceEnabled
+                                                  ? Color.wmrAccentBlue.opacity(0.25)
+                                                  : Color.white.opacity(0.06))
+                                    )
+                                    .foregroundColor(ownerPreRaceEnabled ? .white : Color.wmrTextSecondary)
                             }
+                            .buttonStyle(.plain)
+                            .disabled(!ownerPreRaceEnabled)
                         }
 
-                        Text("Later you’ll be able to customize timing for up to two race notifications (from 20 minutes to 48 hours before).")
-                            .font(.footnote)
-                            .foregroundColor(Color.wmrTextTertiary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        Divider()
+                            .background(Color.wmrBorderSubtle)
+
+                        // Watching / fans & friends
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("For watched races")
+                                .font(.footnote)
+                                .foregroundColor(Color.wmrTextSecondary)
+
+                            HStack(spacing: 12) {
+                                Text("Remind me for races I’m watching")
+                                    .font(.footnote)
+                                    .foregroundColor(Color.wmrTextPrimary)
+
+                                Spacer()
+
+                                Toggle("", isOn: $watchingRemindersEnabled)
+                                    .labelsHidden()
+                            }
+
+                            HStack(spacing: 16) {
+                                // 1st notification (short lead, minutes)
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("1st notification")
+                                        .font(.footnote)
+                                        .foregroundColor(Color.wmrTextSecondary)
+
+                                    Button {
+                                        isShowingFirstMinutesPicker = true
+                                    } label: {
+                                        Text(watchingFirstLabel)
+                                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 8)
+                                            .frame(maxWidth: .infinity)
+                                            .background(
+                                                Capsule()
+                                                    .fill(watchingRemindersEnabled
+                                                          ? Color.wmrAccentBlue.opacity(watchingFirstMinutesBefore > 0 ? 0.25 : 0.15)
+                                                          : Color.white.opacity(0.06))
+                                            )
+                                            .foregroundColor(watchingRemindersEnabled ? .white : Color.wmrTextSecondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(!watchingRemindersEnabled)
+                                }
+
+                                // 2nd notification (longer lead, hours)
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("2nd notification")
+                                        .font(.footnote)
+                                        .foregroundColor(Color.wmrTextSecondary)
+
+                                    Button {
+                                        isShowingSecondHoursPicker = true
+                                    } label: {
+                                        Text(watchingSecondLabel)
+                                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 8)
+                                            .frame(maxWidth: .infinity)
+                                            .background(
+                                                Capsule()
+                                                    .fill(watchingRemindersEnabled
+                                                          ? Color.white.opacity(0.12)
+                                                          : Color.white.opacity(0.06))
+                                            )
+                                            .foregroundColor(watchingRemindersEnabled ? .white : Color.wmrTextSecondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(!watchingRemindersEnabled)
+                                }
+                            }
+
+                            Text("Customize reminders for your own races and for races you’re watching. Watching reminders will fire before race start times when you’ve starred pros, friends, or meets.")
+                                .font(.footnote)
+                                .foregroundColor(Color.wmrTextTertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
                 .padding(16)
@@ -255,6 +338,77 @@ struct SettingsView: View {
                 }
             }
             .background(Color.wmrBackground.ignoresSafeArea())
+            .confirmationDialog("Race setup reminder", isPresented: $isShowingOwnerHoursPicker, titleVisibility: .visible) {
+                ForEach(ownerHoursOptions, id: \.self) { hours in
+                    Button("\(hours) hours before") {
+                        ownerPreRaceHoursBefore = hours
+                    }
+                }
+            }
+            .confirmationDialog("1st notification timing", isPresented: $isShowingFirstMinutesPicker, titleVisibility: .visible) {
+                ForEach(watchingFirstMinutesOptions, id: \.self) { minutes in
+                    if minutes == 0 {
+                        Button("None") {
+                            watchingFirstMinutesBefore = 0
+                        }
+                    } else if minutes == 1 {
+                        Button("1 minute before") {
+                            watchingFirstMinutesBefore = 1
+                        }
+                    } else {
+                        Button("\(minutes) minutes before") {
+                            watchingFirstMinutesBefore = minutes
+                        }
+                    }
+                }
+            }
+            .confirmationDialog("2nd notification timing", isPresented: $isShowingSecondHoursPicker, titleVisibility: .visible) {
+                ForEach(watchingSecondHoursOptions, id: \.self) { hours in
+                    if hours == 0 {
+                        Button("None") {
+                            watchingSecondMinutesBefore = 0
+                        }
+                    } else if hours == 1 {
+                        Button("1 hour before") {
+                            watchingSecondMinutesBefore = 60
+                        }
+                    } else {
+                        Button("\(hours) hours before") {
+                            watchingSecondMinutesBefore = hours * 60
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Label Helpers
+
+    private var ownerPreRaceLabel: String {
+        let hours = max(1, ownerPreRaceHoursBefore)
+        return "\(hours) hours before race"
+    }
+
+    private var watchingFirstLabel: String {
+        if watchingFirstMinutesBefore <= 0 {
+            return "None"
+        } else if watchingFirstMinutesBefore == 1 {
+            return "1 minute before"
+        } else {
+            return "\(watchingFirstMinutesBefore) minutes before"
+        }
+    }
+
+    private var watchingSecondLabel: String {
+        if watchingSecondMinutesBefore <= 0 {
+            return "None"
+        }
+
+        let hours = watchingSecondMinutesBefore / 60
+        if hours == 1 {
+            return "1 hour before"
+        } else {
+            return "\(hours) hours before"
         }
     }
 }
