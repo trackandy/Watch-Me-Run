@@ -58,6 +58,17 @@ struct MeView: View {
             .sorted { $0.date > $1.date }
     }
 
+    private var shareProfileMessage: String {
+        let uid = authManager.firebaseUser?.uid ?? "your-uid"
+        let name = authManager.firebaseUser?.displayName
+
+        if let name = name, !name.isEmpty {
+            return "Follow \(name)'s races in Watch Me Run! Use this ID in the app: \(uid)"
+        } else {
+            return "Follow my races in Watch Me Run! Use this ID in the Watch Me Run app: \(uid)"
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -182,10 +193,7 @@ struct MeView: View {
                         .font(.caption)
                         .foregroundColor(Color.wmrTextSecondary)
 
-                    Button {
-                        // TODO: Hook up real share sheet with deep link
-                        print("Share profile link tapped")
-                    } label: {
+                    ShareLink(item: shareProfileMessage) {
                         HStack(alignment: .center, spacing: 12) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
