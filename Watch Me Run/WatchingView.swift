@@ -19,10 +19,16 @@ struct FeaturedMeet: Identifiable, Hashable {
 }
 
 struct WatchingView: View {
+    @EnvironmentObject var authManager: AuthManager
+
     // Placeholder local state for favorites until real data is wired in
     @State private var favoriteMeets: Set<String> = []
     @State private var favoritePros: Set<String> = []
     @State private var favoriteRunners: Set<String> = []
+    @State private var friendIDs: [String] = []
+    @State private var hasLoadedFriendsFromStorage: Bool = false
+    @State private var isPresentingAddFriend: Bool = false
+    @State private var newFriendID: String = ""
     @State private var showingMeetsInfo: Bool = false
     @State private var showingProsInfo: Bool = false
     @State private var showingRunnersInfo: Bool = false
@@ -32,6 +38,19 @@ struct WatchingView: View {
     @State private var selectedRunnerName: String? = nil
     @State private var selectedRunnerIsPro: Bool = true
     @State private var isShowingRunnerDetail: Bool = false
+
+    private var isLoggedIn: Bool {
+        authManager.firebaseUser != nil
+    }
+
+    /// Key used to persist the list of friend IDs locally.
+    private let friendsStorageKey = "watchMeRun.friendIDs"
+
+    private var emptyFriendsTitle: String {
+        isLoggedIn
+            ? "Add your first friends link"
+            : "Log in on the Me tab to add friends"
+    }
 
     private let featuredMeets: [FeaturedMeet] = [
         FeaturedMeet(
@@ -124,258 +143,164 @@ struct WatchingView: View {
         "Athing Mu"
     ]
 
-    private let placeholderRunners: [String] = [
-        "friends_slot_1",
-        "friends_slot_2",
-        "friends_slot_3",
-        "friends_slot_4",
-        "friends_slot_5",
-        "friends_slot_6",
-        "friends_slot_7",
-        "friends_slot_8",
-        "friends_slot_9",
-        "friends_slot_10"
-    ]
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-
-                // MARK: - Header
-                HStack {
-                    Text("Get notified of meets, pros, and friends races")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundColor(Color.wmrTextPrimary)
-
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.wmrSurfaceAlt)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(Color.wmrBorderSubtle, lineWidth: 1)
-                        )
-                        .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 6)
-                )
-                .padding(.horizontal, 16)
-
-                // MARK: - Meets Section
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 6) {
-                        Text("Featured Meets")
-                            .font(.caption)
-                            .foregroundColor(Color.wmrTextSecondary)
-
-                        Button {
-                            showingMeetsInfo = true
-                        } label: {
-                            Image(systemName: "info.circle")
-                                .font(.caption)
-                                .foregroundColor(Color.wmrTextSecondary)
-                        }
-                        .buttonStyle(.plain)
-
-                        Spacer()
-
-                        Button {
-                            isFeaturedMeetsExpanded = true
-                        } label: {
-                            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                .font(.caption)
-                                .padding(4)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(Color.wmrSurfaceAlt.opacity(0.9))
-                                )
-                                .foregroundColor(Color.wmrTextSecondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Expand featured meets")
-                    }
-
-                    WatchingSectionCard {
-                        FeaturedMeetsScroller(
-                            meets: featuredMeets,
-                            favoriteMeets: $favoriteMeets
-                        )
-                    }
-                }
-                .padding(.horizontal, 16)
-
-                // MARK: - Pros Section
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 6) {
-                        Text("Featured Pros")
-                            .font(.caption)
-                            .foregroundColor(Color.wmrTextSecondary)
-
-                        Button {
-                            showingProsInfo = true
-                        } label: {
-                            Image(systemName: "info.circle")
-                                .font(.caption)
-                                .foregroundColor(Color.wmrTextSecondary)
-                        }
-                        .buttonStyle(.plain)
-
-                        Spacer()
-
-                        Button {
-                            isFeaturedProsExpanded = true
-                        } label: {
-                            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                .font(.caption)
-                                .padding(4)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(Color.wmrSurfaceAlt.opacity(0.9))
-                                )
-                                .foregroundColor(Color.wmrTextSecondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Expand featured pros")
-                    }
-
-                    WatchingSectionCard {
-                        ScrollView(.vertical, showsIndicators: true) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(featuredPros, id: \.self) { pro in
-                                    WatchingRow(
-                                        title: pro,
-                                        isStarred: favoritePros.contains(pro),
-                                        onToggleStar: {
-                                            if favoritePros.contains(pro) {
-                                                favoritePros.remove(pro)
-                                            } else {
-                                                favoritePros.insert(pro)
-                                            }
-                                        },
-                                        onRowTap: {
-                                            selectedRunnerName = pro
-                                            selectedRunnerIsPro = true
-                                            isShowingRunnerDetail = true
-                                        }
-                                    )
-
-                                    if pro != featuredPros.last {
-                                        Divider()
-                                            .background(Color.wmrBorderSubtle)
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        .frame(height: 190)
-                    }
-                }
-                .padding(.horizontal, 16)
-
-                // MARK: - Runners Section
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 6) {
-                        Text("Friends")
-                            .font(.caption)
-                            .foregroundColor(Color.wmrTextSecondary)
-
-                        Button {
-                            showingRunnersInfo = true
-                        } label: {
-                            Image(systemName: "info.circle")
-                                .font(.caption)
-                                .foregroundColor(Color.wmrTextSecondary)
-                        }
-                        .buttonStyle(.plain)
-
-                        Spacer()
-
-                        Button {
-                            isFriendsExpanded = true
-                        } label: {
-                            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                .font(.caption)
-                                .padding(4)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(Color.wmrSurfaceAlt.opacity(0.9))
-                                )
-                                .foregroundColor(Color.wmrTextSecondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Expand friends")
-                    }
-
-                    WatchingSectionCard {
-                        ScrollView(.vertical, showsIndicators: true) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(Array(placeholderRunners.enumerated()), id: \.element) { index, runnerKey in
-                                    // First entry shows a helpful placeholder message,
-                                    // remaining entries are visually "blank" lines
-                                    let displayTitle = index == 0 ? "Add your first friends link" : ""
-
-                                    WatchingRow(
-                                        title: displayTitle,
-                                        isStarred: favoriteRunners.contains(runnerKey),
-                                        onToggleStar: {
-                                            if favoriteRunners.contains(runnerKey) {
-                                                favoriteRunners.remove(runnerKey)
-                                            } else {
-                                                favoriteRunners.insert(runnerKey)
-                                            }
-                                        },
-                                        onRowTap: {
-                                            // Only show a detail card if we actually have a non-empty title to show
-                                            guard !displayTitle.isEmpty else { return }
-                                            selectedRunnerName = displayTitle
-                                            selectedRunnerIsPro = false
-                                            isShowingRunnerDetail = true
-                                        }
-                                    )
-
-                                    if runnerKey != placeholderRunners.last {
-                                        Divider()
-                                            .background(Color.wmrBorderSubtle)
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        .frame(height: 190)
-                    }
-                }
-                .padding(.horizontal, 16)
-
-                Spacer(minLength: 12)
-            }
-            .padding(.top, 8)
-            .padding(.bottom, 32)
+            mainContent
+        }
+        .onAppear {
+            loadFriendsFromStorageIfNeeded()
         }
         .sheet(isPresented: $isFeaturedMeetsExpanded) {
-            NavigationStack {
-                ScrollView {
-                    FeaturedMeetsGrid(
-                        meets: featuredMeets,
-                        favoriteMeets: $favoriteMeets
-                    )
-                    .padding(16)
-                }
-                .background(Color.wmrBackground.ignoresSafeArea())
-                .navigationTitle("Featured Meets")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") {
-                            isFeaturedMeetsExpanded = false
-                        }
-                    }
-                }
-            }
+            featuredMeetsSheet
         }
         .sheet(isPresented: $isFeaturedProsExpanded) {
-            NavigationStack {
-                ScrollView {
+            featuredProsSheet
+        }
+        .sheet(isPresented: $isFriendsExpanded) {
+            friendsSheet
+        }
+        .sheet(isPresented: $isPresentingAddFriend) {
+            addFriendSheet
+        }
+        .sheet(isPresented: $isShowingRunnerDetail) {
+            runnerDetailSheet
+        }
+        .alert("Featured Meets", isPresented: $showingMeetsInfo) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Get notified of featured meets, and be able to select all events you want to watch for these multi-day long meets. Login on the Me tab in order for the app to save your selections.")
+        }
+        .alert("Featured Pros", isPresented: $showingProsInfo) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Select your favorite pros to never miss them race! Login on the Me tab in order for the app to save your selections.")
+        }
+        .alert("Friends", isPresented: $showingRunnersInfo) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Watch your friends race! Note that their racing schedules are input by the individuals themselves.")
+        }
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            headerSection
+            featuredMeetsSection
+            featuredProsSection
+            friendsSection
+            Spacer(minLength: 12)
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 32)
+    }
+
+    @ViewBuilder
+    private var headerSection: some View {
+        HStack {
+            Text("Get notified of meets, pros, and friends races")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(Color.wmrTextPrimary)
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.wmrSurfaceAlt)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.wmrBorderSubtle, lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 6)
+        )
+        .padding(.horizontal, 16)
+    }
+
+    @ViewBuilder
+    private var featuredMeetsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Text("Featured Meets")
+                    .font(.caption)
+                    .foregroundColor(Color.wmrTextSecondary)
+
+                Button {
+                    showingMeetsInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.caption)
+                        .foregroundColor(Color.wmrTextSecondary)
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                Button {
+                    isFeaturedMeetsExpanded = true
+                } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.caption)
+                        .padding(4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.wmrSurfaceAlt.opacity(0.9))
+                        )
+                        .foregroundColor(Color.wmrTextSecondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Expand featured meets")
+            }
+
+            WatchingSectionCard {
+                FeaturedMeetsScroller(
+                    meets: featuredMeets,
+                    favoriteMeets: $favoriteMeets
+                )
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    @ViewBuilder
+    private var featuredProsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Text("Featured Pros")
+                    .font(.caption)
+                    .foregroundColor(Color.wmrTextSecondary)
+
+                Button {
+                    showingProsInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.caption)
+                        .foregroundColor(Color.wmrTextSecondary)
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                Button {
+                    isFeaturedProsExpanded = true
+                } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.caption)
+                        .padding(4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.wmrSurfaceAlt.opacity(0.9))
+                        )
+                        .foregroundColor(Color.wmrTextSecondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Expand featured pros")
+            }
+
+            WatchingSectionCard {
+                ScrollView(.vertical, showsIndicators: true) {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(featuredPros, id: \.self) { pro in
                             WatchingRow(
@@ -394,125 +319,353 @@ struct WatchingView: View {
                                     isShowingRunnerDetail = true
                                 }
                             )
-                            Divider()
-                                .background(Color.wmrBorderSubtle)
+
+                            if pro != featuredPros.last {
+                                Divider()
+                                    .background(Color.wmrBorderSubtle)
+                            }
                         }
                     }
-                    .padding(16)
+                    .padding(.vertical, 4)
                 }
-                .background(Color.wmrBackground.ignoresSafeArea())
-                .navigationTitle("Featured Pros")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") {
-                            isFeaturedProsExpanded = false
+                .frame(height: 190)
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    @ViewBuilder
+    private var friendsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Text("Friends")
+                    .font(.caption)
+                    .foregroundColor(Color.wmrTextSecondary)
+
+                Button {
+                    showingRunnersInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.caption)
+                        .foregroundColor(Color.wmrTextSecondary)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    if isLoggedIn {
+                        isPresentingAddFriend = true
+                    } else {
+                        showingRunnersInfo = true
+                    }
+                } label: {
+                    Image(systemName: "person.badge.plus")
+                        .font(.caption)
+                        .padding(4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.wmrSurfaceAlt.opacity(0.9))
+                        )
+                        .foregroundColor(Color.wmrTextSecondary.opacity(isLoggedIn ? 1.0 : 0.4))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add friend by ID")
+
+                Spacer()
+
+                Button {
+                    isFriendsExpanded = true
+                } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.caption)
+                        .padding(4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.wmrSurfaceAlt.opacity(0.9))
+                        )
+                        .foregroundColor(Color.wmrTextSecondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Expand friends")
+            }
+
+            WatchingSectionCard {
+                ScrollView(.vertical, showsIndicators: true) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if friendIDs.isEmpty {
+                            WatchingRow(
+                                title: emptyFriendsTitle,
+                                isStarred: false,
+                                onToggleStar: {},
+                                onRowTap: {
+                                    if isLoggedIn {
+                                        isPresentingAddFriend = true
+                                    }
+                                }
+                            )
+                        } else {
+                            ForEach(friendIDs, id: \.self) { friendID in
+                                WatchingRow(
+                                    title: friendID,
+                                    isStarred: favoriteRunners.contains(friendID),
+                                    onToggleStar: {
+                                        guard isLoggedIn else { return }
+                                        if favoriteRunners.contains(friendID) {
+                                            favoriteRunners.remove(friendID)
+                                        } else {
+                                            favoriteRunners.insert(friendID)
+                                        }
+                                    },
+                                    onRowTap: {
+                                        selectedRunnerName = friendID
+                                        selectedRunnerIsPro = false
+                                        isShowingRunnerDetail = true
+                                    }
+                                )
+
+                                if friendID != friendIDs.last {
+                                    Divider()
+                                        .background(Color.wmrBorderSubtle)
+                                }
+                            }
                         }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .frame(height: 190)
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Sheet Content Helpers
+
+    @ViewBuilder
+    private var featuredMeetsSheet: some View {
+        NavigationStack {
+            ScrollView {
+                FeaturedMeetsGrid(
+                    meets: featuredMeets,
+                    favoriteMeets: $favoriteMeets
+                )
+                .padding(16)
+            }
+            .background(Color.wmrBackground.ignoresSafeArea())
+            .navigationTitle("Featured Meets")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        isFeaturedMeetsExpanded = false
                     }
                 }
             }
         }
-        .sheet(isPresented: $isFriendsExpanded) {
-            NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(Array(placeholderRunners.enumerated()), id: \.element) { index, runnerKey in
-                            let displayTitle = index == 0 ? "Add your first friends link" : ""
+    }
 
+    @ViewBuilder
+    private var featuredProsSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(featuredPros, id: \.self) { pro in
+                        WatchingRow(
+                            title: pro,
+                            isStarred: favoritePros.contains(pro),
+                            onToggleStar: {
+                                if favoritePros.contains(pro) {
+                                    favoritePros.remove(pro)
+                                } else {
+                                    favoritePros.insert(pro)
+                                }
+                            },
+                            onRowTap: {
+                                selectedRunnerName = pro
+                                selectedRunnerIsPro = true
+                                isShowingRunnerDetail = true
+                            }
+                        )
+                        Divider()
+                            .background(Color.wmrBorderSubtle)
+                    }
+                }
+                .padding(16)
+            }
+            .background(Color.wmrBackground.ignoresSafeArea())
+            .navigationTitle("Featured Pros")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        isFeaturedProsExpanded = false
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var friendsSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    if friendIDs.isEmpty {
+                        WatchingRow(
+                            title: emptyFriendsTitle,
+                            isStarred: false,
+                            onToggleStar: {},
+                            onRowTap: {
+                                if isLoggedIn {
+                                    isPresentingAddFriend = true
+                                }
+                            }
+                        )
+                    } else {
+                        ForEach(friendIDs, id: \.self) { friendID in
                             WatchingRow(
-                                title: displayTitle,
-                                isStarred: favoriteRunners.contains(runnerKey),
+                                title: friendID,
+                                isStarred: favoriteRunners.contains(friendID),
                                 onToggleStar: {
-                                    if favoriteRunners.contains(runnerKey) {
-                                        favoriteRunners.remove(runnerKey)
+                                    guard isLoggedIn else { return }
+                                    if favoriteRunners.contains(friendID) {
+                                        favoriteRunners.remove(friendID)
                                     } else {
-                                        favoriteRunners.insert(runnerKey)
+                                        favoriteRunners.insert(friendID)
                                     }
                                 },
                                 onRowTap: {
-                                    guard !displayTitle.isEmpty else { return }
-                                    selectedRunnerName = displayTitle
+                                    selectedRunnerName = friendID
                                     selectedRunnerIsPro = false
                                     isShowingRunnerDetail = true
                                 }
                             )
-
                             Divider()
                                 .background(Color.wmrBorderSubtle)
                         }
                     }
-                    .padding(16)
                 }
-                .background(Color.wmrBackground.ignoresSafeArea())
-                .navigationTitle("Friends")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") {
-                            isFriendsExpanded = false
-                        }
+                .padding(16)
+            }
+            .background(Color.wmrBackground.ignoresSafeArea())
+            .navigationTitle("Friends")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        isFriendsExpanded = false
                     }
                 }
             }
         }
-        .sheet(isPresented: $isShowingRunnerDetail) {
-            Group {
-                if let name = selectedRunnerName {
-                    // Binding that keeps the sheet's Watching toggle in sync with the list star state
-                    let isWatchingBinding: Binding<Bool> = Binding(
-                        get: {
-                            if selectedRunnerIsPro {
-                                return favoritePros.contains(name)
-                            } else {
-                                return favoriteRunners.contains(name)
-                            }
-                        },
-                        set: { newValue in
-                            if selectedRunnerIsPro {
-                                if newValue {
-                                    favoritePros.insert(name)
-                                } else {
-                                    favoritePros.remove(name)
-                                }
-                            } else {
-                                if newValue {
-                                    favoriteRunners.insert(name)
-                                } else {
-                                    favoriteRunners.remove(name)
-                                }
-                            }
-                        }
-                    )
+    }
 
-                    // Placeholder race arrays for now; can be wired to real data later
-                    RunnerDetailView(
-                        name: name,
-                        isWatching: isWatchingBinding,
-                        upcomingRaces: [],
-                        pastRaces: []
-                    )
-                } else {
-                    Text("No runner selected")
-                        .padding()
+    @ViewBuilder
+    private var addFriendSheet: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("Friend ID")) {
+                    TextField("Paste ID from Me tab share", text: $newFriendID)
+                        .textInputAutocapitalization(.none)
+                        .autocorrectionDisabled(true)
+                        .font(.system(size: 14, weight: .regular, design: .monospaced))
+                }
+
+                Section(footer: Text("Ask your friend to share their Watch Me Run link from the Me tab, then paste the ID here.")) {
+                    EmptyView()
                 }
             }
-            .presentationDetents([.fraction(0.5)])
+            .navigationTitle("Add Friend")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        newFriendID = ""
+                        isPresentingAddFriend = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        addFriendFromInput()
+                    }
+                    .disabled(newFriendID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
         }
-        .alert("Featured Meets", isPresented: $showingMeetsInfo) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Get notified of featured meets, and be able to select all events you want to watch for these multi-day long meets. Login on the Me tab in order for the app to save your selections.")
+    }
+
+    @ViewBuilder
+    private var runnerDetailSheet: some View {
+        Group {
+            if let name = selectedRunnerName {
+                RunnerDetailView(
+                    name: name,
+                    isWatching: watchingBinding(for: name),
+                    upcomingRaces: [],
+                    pastRaces: [],
+                    friendID: selectedRunnerIsPro ? nil : name
+                )
+            } else {
+                Text("No runner selected")
+                    .padding()
+            }
         }
-        .alert("Featured Pros", isPresented: $showingProsInfo) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Select your favorite pros to never miss them race! Login on the Me tab in order for the app to save your selections.")
+        .presentationDetents([.fraction(0.5)])
+    }
+
+    private func addFriendFromInput() {
+        let trimmed = newFriendID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        if !friendIDs.contains(trimmed) {
+            friendIDs.append(trimmed)
+            saveFriendsToStorage()
         }
-        .alert("Friends", isPresented: $showingRunnersInfo) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Watch your friends race! Note that their racing schedules are input by the individuals themselves.")
+
+        newFriendID = ""
+        isPresentingAddFriend = false
+    }
+
+    /// Load friends from UserDefaults the first time this view appears.
+    private func loadFriendsFromStorageIfNeeded() {
+        guard !hasLoadedFriendsFromStorage else { return }
+        hasLoadedFriendsFromStorage = true
+
+        if let stored = UserDefaults.standard.array(forKey: friendsStorageKey) as? [String] {
+            friendIDs = stored
         }
+    }
+
+    /// Persist the current list of friend IDs to UserDefaults.
+    private func saveFriendsToStorage() {
+        UserDefaults.standard.set(friendIDs, forKey: friendsStorageKey)
+    }
+
+    /// Construct a Binding<Bool> that keeps the "Watching" state in sync between
+    /// the list row star and the RunnerDetailView toggle for the given runner name.
+    private func watchingBinding(for name: String) -> Binding<Bool> {
+        Binding(
+            get: {
+                if selectedRunnerIsPro {
+                    return favoritePros.contains(name)
+                } else {
+                    return favoriteRunners.contains(name)
+                }
+            },
+            set: { newValue in
+                if selectedRunnerIsPro {
+                    if newValue {
+                        favoritePros.insert(name)
+                    } else {
+                        favoritePros.remove(name)
+                    }
+                } else {
+                    if newValue {
+                        favoriteRunners.insert(name)
+                    } else {
+                        favoriteRunners.remove(name)
+                    }
+                }
+            }
+        )
     }
 }
 
@@ -797,6 +950,7 @@ struct WatchingRow: View {
 struct WatchingView_Previews: PreviewProvider {
     static var previews: some View {
         WatchingView()
+            .environmentObject(AuthManager())
             .environment(\.colorScheme, .dark)
             .background(Color.wmrBackground)
     }

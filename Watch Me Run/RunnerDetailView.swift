@@ -28,9 +28,44 @@ struct RunnerDetailView: View {
     /// Bound to the same boolean used to control the star/watching state in the list.
     @Binding var isWatching: Bool
 
-    /// Races that belong to this runner.
+    /// Static races for this runner (used for pros or previews).
+    /// For friends with a Firebase UID, these are ignored and we instead use FriendRaceStore.
     let upcomingRaces: [RunnerRaceSummary]
     let pastRaces: [RunnerRaceSummary]
+
+    /// Optional Firebase UID of this runner when they are a "friend" whose races live in Firestore.
+    /// When non-nil, we use FriendRaceStore to load their races live from:
+    /// users/{uid}/races
+    let friendID: String?
+
+    @StateObject private var friendRaceStore = FriendRaceStore()
+    @State private var selectedRace: RunnerRaceSummary?
+    @State private var isShowingRaceDetail: Bool = false
+
+    init(
+        name: String,
+        isWatching: Binding<Bool>,
+        upcomingRaces: [RunnerRaceSummary],
+        pastRaces: [RunnerRaceSummary],
+        friendID: String? = nil
+    ) {
+        self.name = name
+        self._isWatching = isWatching
+        self.upcomingRaces = upcomingRaces
+        self.pastRaces = pastRaces
+        self.friendID = friendID
+    }
+
+    /// Computed races actually shown in the UI, based on whether we're using Firestore or static data.
+    private var displayedUpcomingRaces: [RunnerRaceSummary] {
+        guard let _ = friendID else { return upcomingRaces }
+        return summaries(from: friendRaceStore.races, upcoming: true)
+    }
+
+    private var displayedPastRaces: [RunnerRaceSummary] {
+        guard let _ = friendID else { return pastRaces }
+        return summaries(from: friendRaceStore.races, upcoming: false)
+    }
 
     var body: some View {
         VStack(spacing: 16) {
@@ -47,13 +82,15 @@ struct RunnerDetailView: View {
             // Upcoming races section (matches Me tab styling conceptually)
             RunnerRacesSection(
                 title: "Upcoming Races",
-                races: upcomingRaces
+                races: displayedUpcomingRaces,
+                onRaceTap: handleRaceTap
             )
 
             // Past races section
             RunnerRacesSection(
                 title: "Past Races",
-                races: pastRaces
+                races: displayedPastRaces,
+                onRaceTap: handleRaceTap
             )
 
             Spacer(minLength: 8)
@@ -63,6 +100,58 @@ struct RunnerDetailView: View {
             Color.wmrBackground
                 .ignoresSafeArea()
         )
+        .onAppear {
+            if let friendID = friendID {
+                friendRaceStore.startListening(for: friendID)
+            }
+        }
+        .onDisappear {
+            friendRaceStore.stopListening()
+        }
+        .sheet(isPresented: $isShowingRaceDetail) {
+            if let race = selectedRace {
+                RaceDetailSheet(race: race)
+            } else {
+                EmptyView()
+            }
+        }
+    }
+    /// Handle tapping on a race row by selecting it and showing the detail sheet.
+    private func handleRaceTap(_ race: RunnerRaceSummary) {
+        selectedRace = race
+        isShowingRaceDetail = true
+    }
+
+    /// Map UserRace models (from Firestore) into the lightweight RunnerRaceSummary
+    /// used by RunnerDetailView for display.
+    private func summaries(from userRaces: [UserRace], upcoming: Bool) -> [RunnerRaceSummary] {
+        // Split into upcoming vs past using the same isInPast logic as the Me tab.
+        let filtered: [UserRace] = userRaces.filter { race in
+            upcoming ? !race.isInPast : race.isInPast
+        }
+
+        // For upcoming races, show soonest first; for past races, show most recent first.
+        let sorted: [UserRace]
+        if upcoming {
+            sorted = filtered.sorted { $0.date < $1.date }
+        } else {
+            sorted = filtered.sorted { $0.date > $1.date }
+        }
+
+        let tzAbbrev = TimeZone.current.abbreviation() ?? "ET"
+
+        return sorted.map { race in
+            RunnerRaceSummary(
+                name: race.name,
+                distance: race.distance,
+                date: race.date,
+                timeZoneAbbrev: tzAbbrev,
+                liveURL: race.liveResultsURL,
+                streamURL: race.watchURL,
+                homeURL: nil,
+                isUpcoming: upcoming
+            )
+        }
     }
 }
 
@@ -99,6 +188,7 @@ struct WatchingToggleBar: View {
 struct RunnerRacesSection: View {
     let title: String
     let races: [RunnerRaceSummary]
+    let onRaceTap: ((RunnerRaceSummary) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -115,7 +205,16 @@ struct RunnerRacesSection: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(races) { race in
-                        RunnerRaceRow(race: race)
+                        if let onRaceTap = onRaceTap {
+                            Button {
+                                onRaceTap(race)
+                            } label: {
+                                RunnerRaceRow(race: race)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            RunnerRaceRow(race: race)
+                        }
 
                         if race.id != races.last?.id {
                             Divider()
@@ -133,6 +232,104 @@ struct RunnerRacesSection: View {
                 )
             }
         }
+    }
+}
+/// Bottom-sheet card that shows more details for a single race and provides
+/// tappable buttons for live results, stream, and event home links.
+struct RaceDetailSheet: View {
+    let race: RunnerRaceSummary
+    @Environment(\.openURL) private var openURL
+
+    private var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMM d, yyyy"
+        return formatter.string(from: race.date)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Header
+            Text(race.name)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(Color.wmrTextPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(race.distance)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(Color.wmrTextSecondary)
+
+                Text("\(formattedDate) • \(race.timeZoneAbbrev)")
+                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                    .foregroundColor(Color.wmrTextSecondary)
+            }
+
+            VStack(spacing: 10) {
+                linkButton(
+                    title: "Live Results",
+                    systemImage: "list.number",
+                    url: race.liveURL
+                )
+
+                linkButton(
+                    title: "Stream",
+                    systemImage: "tv",
+                    url: race.streamURL
+                )
+
+                linkButton(
+                    title: "Event Home",
+                    systemImage: "house",
+                    url: race.homeURL
+                )
+            }
+
+            Spacer(minLength: 8)
+        }
+        .padding(16)
+        .background(
+            Color.wmrBackground
+                .ignoresSafeArea()
+        )
+        .presentationDetents([.fraction(0.5)])
+        .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private func linkButton(title: String, systemImage: String, url: URL?) -> some View {
+        let isEnabled = (url != nil)
+
+        Button {
+            if let url = url {
+                openURL(url)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .foregroundColor(isEnabled ? Color.wmrAccentOrange : Color.wmrTextSecondary.opacity(0.6))
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(
+                        isEnabled
+                        ? Color.wmrSurfaceAlt
+                        : Color.wmrSurfaceAlt.opacity(0.7)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(
+                        isEnabled ? Color.wmrAccentOrange : Color.wmrBorderSubtle,
+                        lineWidth: 1
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
     }
 }
 
