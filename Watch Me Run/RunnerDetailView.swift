@@ -9,7 +9,6 @@ import SwiftUI
 
 /// Lightweight race summary for displaying a runner's schedule in the Watching tab.
 struct RunnerRaceSummary: Identifiable, Equatable {
-    let id: UUID = UUID()
     let name: String
     let distance: String
     let date: Date
@@ -18,6 +17,41 @@ struct RunnerRaceSummary: Identifiable, Equatable {
     let streamURL: URL?
     let homeURL: URL?
     let isUpcoming: Bool
+    
+    /// Stable identifier for the underlying race when known (e.g., Firestore doc id).
+    /// This is used for notification identifiers so we don't create duplicates when
+    /// the view is rebuilt. For static/pro preview data this will be nil.
+    let raceID: String?
+    
+    /// Local identity used by SwiftUI lists. This can change across reloads and should
+    /// not be used for notification identifiers.
+    let id: UUID
+    
+    /// Explicit initializer so that we can take an optional stable raceID (for Firestore-backed
+    /// races) while still allowing call sites to omit it (e.g., previews and static data).
+    init(
+        name: String,
+        distance: String,
+        date: Date,
+        timeZoneAbbrev: String,
+        liveURL: URL?,
+        streamURL: URL?,
+        homeURL: URL?,
+        isUpcoming: Bool,
+        raceID: String? = nil,
+        id: UUID = UUID()
+    ) {
+        self.name = name
+        self.distance = distance
+        self.date = date
+        self.timeZoneAbbrev = timeZoneAbbrev
+        self.liveURL = liveURL
+        self.streamURL = streamURL
+        self.homeURL = homeURL
+        self.isUpcoming = isUpcoming
+        self.raceID = raceID
+        self.id = id
+    }
 }
 
 /// The main sheet/card that appears when a user taps on a Pro or Friend row.
@@ -41,6 +75,11 @@ struct RunnerDetailView: View {
     @StateObject private var friendRaceStore = FriendRaceStore()
     @State private var selectedRace: RunnerRaceSummary?
     @State private var isShowingRaceDetail: Bool = false
+
+    // Notification settings for races I'm watching (friends/fans side)
+    @AppStorage("watchingRemindersEnabled") private var watchingRemindersEnabled: Bool = true
+    @AppStorage("watchingFirstMinutesBefore") private var watchingFirstMinutesBefore: Int = 20   // 0 = none
+    @AppStorage("watchingSecondMinutesBefore") private var watchingSecondMinutesBefore: Int = 0   // 0 = none
 
     init(
         name: String,
@@ -115,11 +154,90 @@ struct RunnerDetailView: View {
                 EmptyView()
             }
         }
+        .onChange(of: isWatching) { oldValue, newValue in
+            handleWatchingToggle(isNowWatching: newValue)
+        }
+        .onChange(of: displayedUpcomingRaces) { oldValue, newValue in
+            print("🔁 displayedUpcomingRaces changed from \(oldValue.count) to \(newValue.count); isWatching=\(isWatching)")
+            // If the user is currently watching this runner, keep notifications in sync
+            // with the latest set of upcoming races.
+            if isWatching {
+                handleWatchingToggle(isNowWatching: true)
+            }
+        }
     }
     /// Handle tapping on a race row by selecting it and showing the detail sheet.
     private func handleRaceTap(_ race: RunnerRaceSummary) {
         selectedRace = race
         isShowingRaceDetail = true
+    }
+
+    // MARK: - Watching notifications
+
+    /// When the user toggles the "Watching" state for this runner, schedule or
+    /// cancel notifications for all upcoming races according to the settings.
+    private func handleWatchingToggle(isNowWatching: Bool) {
+        print("🔔 handleWatchingToggle called isNowWatching=\(isNowWatching) enabled=\(watchingRemindersEnabled) first=\(watchingFirstMinutesBefore) second=\(watchingSecondMinutesBefore) displayedUpcoming=\(displayedUpcomingRaces.count)")
+        
+        // Use the races that are actually displayed as upcoming in this view.
+        let futureRaces = displayedUpcomingRaces.filter { $0.date > Date() }
+        print("🔔 futureRaces count = \(futureRaces.count)")
+        
+        if !isNowWatching {
+            // No longer watching: cancel any pending notifications for these races.
+            for race in futureRaces {
+                let stableID = race.raceID ?? race.id.uuidString
+                print("🗑️ Cancelling watching notifications because no longer watching for race=\(race.name) raceID=\(String(describing: race.raceID)) notificationID=\(stableID)")
+                NotificationManager.shared.cancelWatchingNotificationsForRace(raceID: stableID)
+            }
+            return
+        }
+        
+        // If watching reminders are disabled globally, cancel and exit.
+        guard watchingRemindersEnabled else {
+            print("⚙️ Watching reminders globally disabled; cancelling any existing notifications for these races.")
+            for race in futureRaces {
+                let stableID = race.raceID ?? race.id.uuidString
+                NotificationManager.shared.cancelWatchingNotificationsForRace(raceID: stableID)
+            }
+            return
+        }
+        
+        // At least one of the two timers must be > 0 to schedule anything.
+        let firstMinutes = max(0, watchingFirstMinutesBefore)
+        let secondMinutes = max(0, watchingSecondMinutesBefore)
+        guard firstMinutes > 0 || secondMinutes > 0 else {
+            print("⚙️ Both watching offsets are zero; cancelling notifications for these races.")
+            for race in futureRaces {
+                let stableID = race.raceID ?? race.id.uuidString
+                NotificationManager.shared.cancelWatchingNotificationsForRace(raceID: stableID)
+            }
+            return
+        }
+        
+        Task {
+            let granted = await NotificationManager.shared.requestAuthorizationIfNeeded()
+            guard granted else {
+                print("🚫 Notification authorization not granted for watching races.")
+                return
+            }
+            
+            for race in futureRaces {
+                let stableID = race.raceID ?? race.id.uuidString
+                
+                // Clear any existing notifications for this race first.
+                print("🧹 Clearing and rescheduling watching notifications for race=\(race.name) raceID=\(String(describing: race.raceID)) notificationID=\(stableID) date=\(race.date) first=\(firstMinutes) second=\(secondMinutes)")
+                NotificationManager.shared.cancelWatchingNotificationsForRace(raceID: stableID)
+                
+                NotificationManager.shared.scheduleWatchingNotificationsForRace(
+                    raceID: stableID,
+                    raceName: race.name,
+                    raceStartDate: race.date,
+                    firstMinutesBefore: firstMinutes,
+                    secondMinutesBefore: secondMinutes
+                )
+            }
+        }
     }
 
     /// Map UserRace models (from Firestore) into the lightweight RunnerRaceSummary
@@ -149,7 +267,8 @@ struct RunnerDetailView: View {
                 liveURL: race.liveResultsURL,
                 streamURL: race.watchURL,
                 homeURL: nil,
-                isUpcoming: upcoming
+                isUpcoming: upcoming,
+                raceID: race.id  // stable Firestore id for notifications
             )
         }
     }

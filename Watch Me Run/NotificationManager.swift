@@ -120,4 +120,83 @@ final class NotificationManager {
     private func preRaceDetailsIdentifier(raceID: String, ownerUID: String) -> String {
         return "race-\(ownerUID)-\(raceID)-details6h"
     }
+
+    // MARK: - Watching reminders (friends / pros / meets)
+
+    /// Schedule up to two notifications for a race the user is watching.
+    /// The first reminder is typically a short lead (e.g. 20 minutes), and the second
+    /// is a longer lead (e.g. 12–24 hours). Both parameters are in minutes; pass 0 to skip.
+    func scheduleWatchingNotificationsForRace(
+        raceID: String,
+        raceName: String,
+        raceStartDate: Date,
+        firstMinutesBefore: Int,
+        secondMinutesBefore: Int
+    ) {
+        let now = Date()
+
+        func makeTriggerDate(minutesBefore: Int) -> Date? {
+            guard minutesBefore > 0 else { return nil }
+            let date = raceStartDate.addingTimeInterval(-Double(minutesBefore) * 60)
+            return date > now ? date : nil
+        }
+
+        // First (short lead) notification
+        if let firstDate = makeTriggerDate(minutesBefore: firstMinutesBefore) {
+            let content = UNMutableNotificationContent()
+            content.title = "Race you're watching"
+            content.body = "\(raceName) is about to start soon. Tap to follow along live."
+            content.sound = .default
+
+            let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: firstDate)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+            let identifier = watchingIdentifier(raceID: raceID, slot: "first")
+
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+            center.add(request) { error in
+                if let error = error {
+                    print("❌ Failed to schedule FIRST watching notification for \(raceName): \(error)")
+                } else {
+                    print("✅ Scheduled FIRST watching notification for \(raceName) at \(firstDate) (\(firstMinutesBefore)m before)")
+                }
+            }
+        }
+
+        // Second (longer lead) notification
+        if let secondDate = makeTriggerDate(minutesBefore: secondMinutesBefore) {
+            let content = UNMutableNotificationContent()
+            content.title = "Upcoming race you're watching"
+            content.body = "\(raceName) is coming up. Get ready to follow the race!"
+            content.sound = .default
+
+            let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: secondDate)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+            let identifier = watchingIdentifier(raceID: raceID, slot: "second")
+
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+            center.add(request) { error in
+                if let error = error {
+                    print("❌ Failed to schedule SECOND watching notification for \(raceName): \(error)")
+                } else {
+                    print("✅ Scheduled SECOND watching notification for \(raceName) at \(secondDate) (\(secondMinutesBefore)m before)")
+                }
+            }
+        }
+    }
+
+    /// Cancel any previously scheduled watching notifications for a given race
+    /// (both the first and second slots, if they exist).
+    func cancelWatchingNotificationsForRace(raceID: String) {
+        let identifiers = [
+            watchingIdentifier(raceID: raceID, slot: "first"),
+            watchingIdentifier(raceID: raceID, slot: "second")
+        ]
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
+        print("🗑️ Cancelled watching notifications for raceID=\(raceID)")
+    }
+
+    /// Helper to generate unique identifiers for watching notifications.
+    private func watchingIdentifier(raceID: String, slot: String) -> String {
+        return "watch-\(raceID)-\(slot)"
+    }
 }
