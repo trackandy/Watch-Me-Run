@@ -35,6 +35,7 @@ struct MeView: View {
     @EnvironmentObject var raceStore: UserRaceStore
     @Environment(\.openURL) private var openURL
     @State private var isPresentingRaceInput = false
+    @State private var isPresentingRunnerDetails = false
     @State private var currentNonce: String?
     @State private var raceBeingEdited: UserRace?
 
@@ -246,24 +247,45 @@ struct MeView: View {
                         .font(.caption)
                         .foregroundColor(Color.wmrTextSecondary)
 
-                    Button {
-                        isPresentingRaceInput = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 18, weight: .semibold))
-                            Text("Input Race")
-                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    HStack(spacing: 10) {
+                        Button {
+                            isPresentingRaceInput = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 18, weight: .semibold))
+                                Text("Input Race")
+                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            }
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(Color.orange.opacity(0.85))
+                            )
+                            .foregroundColor(.white)
                         }
-                        .padding(.vertical, 10)
-                        .frame(maxWidth: .infinity)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color.orange.opacity(0.85))
-                        )
-                        .foregroundColor(.white)
+                        .buttonStyle(.plain)
+
+                        Button {
+                            isPresentingRunnerDetails = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "figure.run.circle")
+                                    .font(.system(size: 18, weight: .semibold))
+                                Text("Runner Details")
+                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            }
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(Color.wmrAccentBlue.opacity(0.85))
+                            )
+                            .foregroundColor(.white)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
 
                     // Upcoming races
                     VStack(alignment: .leading, spacing: 8) {
@@ -615,6 +637,9 @@ struct MeView: View {
                 }
             }
         }
+        .sheet(isPresented: $isPresentingRunnerDetails) {
+            RunnerDetailsSheet()
+        }
         .sheet(item: $raceBeingEdited) { race in
             RaceInputSheet(existingRace: race) { updatedRace in
                 guard let uid = authManager.firebaseUser?.uid else {
@@ -704,6 +729,135 @@ private func sha256(_ input: String) -> String {
     return hashedData.compactMap { String(format: "%02x", $0) }.joined()
 }
 
+struct RunnerDetailsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var authManager: AuthManager
+    @EnvironmentObject var userDetailsStore: UserDetailsStore
+
+    @State private var isSearchable: Bool = true
+    @State private var runnerName: String = ""
+    @State private var primaryLocation: String = ""
+    @State private var selectedSex: String = "N"
+    @State private var birthDate: Date = Calendar.current.date(byAdding: .year, value: -25, to: Date()) ?? Date()
+    @State private var affiliation: String = ""
+
+    private var ageDescription: String {
+        let now = Date()
+        let components = Calendar.current.dateComponents([.year], from: birthDate, to: now)
+        let years = components.year ?? 0
+        return years > 0 ? "\(years)" : "—"
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                // Visibility / searchability card
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle(isOn: $isSearchable) {
+                            Text("Searchable in Friends tab")
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        }
+
+                        Text("If this is on, other users can find you by name or ID and follow your races in the Watching tab.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Visibility")
+                }
+
+                // Basic info card
+                Section("Basic info") {
+                    TextField("Name", text: $runnerName)
+                        .textContentType(.name)
+                    TextField("Primary location (e.g. Boulder, CO)", text: $primaryLocation)
+                        .textContentType(.addressCityAndState)
+
+                    Picker("Sex", selection: $selectedSex) {
+                        Text("Male").tag("M")
+                        Text("Female").tag("F")
+                        Text("Non-binary / other").tag("N")
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                // Age & affiliation card
+                Section("Age & affiliation") {
+                    DatePicker("Birthday", selection: $birthDate, displayedComponents: .date)
+
+                    HStack {
+                        Text("Age")
+                        Spacer()
+                        Text(ageDescription)
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(.secondary)
+                    }
+
+                    TextField("Affiliation (team, club, etc.)", text: $affiliation)
+                }
+            }
+            .onAppear {
+                // Preload from existing details if available
+                if let existing = userDetailsStore.details {
+                    isSearchable = existing.searchable
+                    runnerName = existing.name
+                    primaryLocation = existing.location
+                    selectedSex = existing.sex
+                    if let birthday = existing.birthday {
+                        birthDate = birthday
+                    }
+                    affiliation = existing.affiliation
+                }
+            }
+            .navigationTitle("Runner Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        // Wire these fields to Firestore users/{uid} via UserDetailsStore
+                        guard let uid = authManager.firebaseUser?.uid else {
+                            print("❌ RunnerDetailsSheet Save tapped but no logged-in user")
+                            dismiss()
+                            return
+                        }
+
+                        let trimmedName = runnerName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedLocation = primaryLocation.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedAffiliation = affiliation.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                        let details = UserDetails(
+                            id: uid,
+                            searchable: isSearchable,
+                            name: trimmedName,
+                            location: trimmedLocation,
+                            sex: selectedSex,
+                            birthday: birthDate,
+                            affiliation: trimmedAffiliation
+                        )
+
+                        print("✅ RunnerDetailsSheet Save tapped, saving to Firestore for uid \(uid)")
+                        userDetailsStore.save(details, for: uid) { error in
+                            if let error = error {
+                                print("❌ Failed to save UserDetails for uid \(uid): \(error)")
+                            } else {
+                                print("✅ Successfully saved UserDetails for uid \(uid)")
+                            }
+                        }
+
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
 struct RaceInputSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -717,6 +871,13 @@ struct RaceInputSheet: View {
     @State private var watchingLink: String
     @State private var showingLinksInfo = false
 
+    @State private var raceLocation: String
+    @State private var meetPageLink: String
+    @State private var selectedLevels: Set<String>
+    @State private var instructionsText: String
+    @State private var commentsText: String
+    @State private var timeZoneIdentifier: String
+
     private var canOpenLiveResultsLink: Bool {
         let trimmed = liveResultsLink.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && URL(string: trimmed) != nil
@@ -724,6 +885,11 @@ struct RaceInputSheet: View {
 
     private var canOpenWatchingLink: Bool {
         let trimmed = watchingLink.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && URL(string: trimmed) != nil
+    }
+    
+    private var canOpenMeetPageLink: Bool {
+        let trimmed = meetPageLink.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && URL(string: trimmed) != nil
     }
 
@@ -735,6 +901,13 @@ struct RaceInputSheet: View {
         _raceDistance = State(initialValue: existingRace?.distance ?? "")
         _liveResultsLink = State(initialValue: existingRace?.liveResultsURL?.absoluteString ?? "")
         _watchingLink = State(initialValue: existingRace?.watchURL?.absoluteString ?? "")
+
+        _raceLocation = State(initialValue: existingRace?.location ?? "")
+        _meetPageLink = State(initialValue: existingRace?.meetPageURL?.absoluteString ?? "")
+        _selectedLevels = State(initialValue: Set(existingRace?.levels ?? []))
+        _instructionsText = State(initialValue: existingRace?.instructions ?? "")
+        _commentsText = State(initialValue: existingRace?.comments ?? "")
+        _timeZoneIdentifier = State(initialValue: existingRace?.timeZoneIdentifier ?? TimeZone.current.identifier)
     }
 
     var body: some View {
@@ -744,12 +917,42 @@ struct RaceInputSheet: View {
                     TextField("Race name", text: $raceName)
 
                     DatePicker("Race date & time",
-                                selection: $raceDate,
-                                displayedComponents: [.date, .hourAndMinute])
+                               selection: $raceDate,
+                               displayedComponents: [.date, .hourAndMinute])
+
+                    Picker("Time zone", selection: $timeZoneIdentifier) {
+                        Text("Eastern (ET)").tag("America/New_York")
+                        Text("Central (CT)").tag("America/Chicago")
+                        Text("Mountain (MT)").tag("America/Denver")
+                        Text("Pacific (PT)").tag("America/Los_Angeles")
+                    }
                 }
 
                 Section("Details") {
                     TextField("Distance (e.g. 5K, Half)", text: $raceDistance)
+                    TextField("Location (e.g. New York, NY)", text: $raceLocation)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Level")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        let allLevels = ["Hobby Jogging", "High School", "Collegiate", "Professional"]
+                        ForEach(allLevels, id: \.self) { level in
+                            Toggle(isOn: Binding(
+                                get: { selectedLevels.contains(level) },
+                                set: { isOn in
+                                    if isOn {
+                                        selectedLevels.insert(level)
+                                    } else {
+                                        selectedLevels.remove(level)
+                                    }
+                                }
+                            )) {
+                                Text(level)
+                            }
+                        }
+                    }
                 }
 
                 Section {
@@ -798,6 +1001,29 @@ struct RaceInputSheet: View {
                         .foregroundColor(canOpenWatchingLink ? Color.accentColor : Color.gray.opacity(0.7))
                         .disabled(!canOpenWatchingLink)
                     }
+
+                    HStack(spacing: 8) {
+                        TextField("Meet page link", text: $meetPageLink)
+                            .keyboardType(.URL)
+                            .textContentType(.URL)
+
+                        Button {
+                            let trimmed = meetPageLink.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if let url = URL(string: trimmed) {
+                                openURL(url)
+                            }
+                        } label: {
+                            Image(systemName: "house")
+                                .font(.system(size: 14, weight: .semibold))
+                                .padding(6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(Color.gray.opacity(canOpenMeetPageLink ? 0.25 : 0.12))
+                                )
+                        }
+                        .foregroundColor(canOpenMeetPageLink ? Color.accentColor : Color.gray.opacity(0.7))
+                        .disabled(!canOpenMeetPageLink)
+                    }
                 } header: {
                     HStack {
                         Text("Links")
@@ -809,6 +1035,25 @@ struct RaceInputSheet: View {
                                 .font(.system(size: 12, weight: .semibold))
                         }
                         .buttonStyle(.plain)
+                    }
+                }
+
+                // Extra info section after Links, before navigationTitle
+                Section("Extra info") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Instructions for following")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextEditor(text: $instructionsText)
+                            .frame(minHeight: 60)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Comments / goals / charity")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextEditor(text: $commentsText)
+                            .frame(minHeight: 60)
                     }
                 }
             }
@@ -831,9 +1076,16 @@ struct RaceInputSheet: View {
                         let trimmedDistance = raceDistance.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedLive = liveResultsLink.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedWatching = watchingLink.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedLocation = raceLocation.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedMeet = meetPageLink.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedInstructions = instructionsText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedComments = commentsText.trimmingCharacters(in: .whitespacesAndNewlines)
 
                         let liveURL = trimmedLive.isEmpty ? nil : URL(string: trimmedLive)
                         let watchURL = trimmedWatching.isEmpty ? nil : URL(string: trimmedWatching)
+                        let meetURL = trimmedMeet.isEmpty ? nil : URL(string: trimmedMeet)
+
+                        let levelsArray = Array(selectedLevels).sorted()
 
                         let newRace = UserRace(
                             id: existingRace?.id ?? UUID().uuidString,
@@ -841,7 +1093,13 @@ struct RaceInputSheet: View {
                             distance: trimmedDistance,
                             date: raceDate,
                             liveResultsURL: liveURL,
-                            watchURL: watchURL
+                            watchURL: watchURL,
+                            timeZoneIdentifier: timeZoneIdentifier,
+                            location: trimmedLocation,
+                            meetPageURL: meetURL,
+                            levels: levelsArray,
+                            instructions: trimmedInstructions.isEmpty ? nil : trimmedInstructions,
+                            comments: trimmedComments.isEmpty ? nil : trimmedComments
                         )
 
                         onSave(newRace)
@@ -858,6 +1116,7 @@ struct MeView_Previews: PreviewProvider {
         MeView()
             .environmentObject(AuthManager())
             .environmentObject(UserRaceStore())
+            .environmentObject(UserDetailsStore())
             .environment(\.colorScheme, .dark)
             .background(Color.wmrBackground)
     }
