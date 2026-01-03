@@ -113,6 +113,16 @@ struct FeaturedMeetCardView: View {
     let watchURL: String?
     let homeMeetURL: String?
 
+    @Environment(\.openURL) private var openURL
+
+    private var hasAnyLink: Bool {
+        let candidates = [liveResultsURL, watchURL, homeMeetURL]
+        return candidates.contains { urlString in
+            guard let s = urlString else { return false }
+            return !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
     private var formattedDate: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE, MMM d • h:mm a"
@@ -154,28 +164,28 @@ struct FeaturedMeetCardView: View {
                 // Live results button
                 featuredLinkButton(
                     systemName: "list.number", // matches the "results" concept
-                    isEnabled: liveResultsURL != nil,
+                    urlString: liveResultsURL,
                     accentYellow: accentYellow
                 )
 
                 // Stream / watching button
                 featuredLinkButton(
                     systemName: "tv.fill",
-                    isEnabled: watchURL != nil,
+                    urlString: watchURL,
                     accentYellow: accentYellow
                 )
 
                 // Meet home button
                 featuredLinkButton(
                     systemName: "house.fill",
-                    isEnabled: homeMeetURL != nil,
+                    urlString: homeMeetURL,
                     accentYellow: accentYellow
                 )
 
                 Spacer(minLength: 4)
 
                 Button(action: {
-                    // Placeholder: actual card-opening action to be wired later
+                    // Placeholder: this will eventually open a detailed featured-event card.
                 }) {
                     HStack(spacing: 4) {
                         Image(systemName: "rectangle.and.hand.point.up.left")
@@ -187,14 +197,16 @@ struct FeaturedMeetCardView: View {
                     .padding(.vertical, 6)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(accentYellow.opacity(0.18))
+                            .fill(accentYellow.opacity(hasAnyLink ? 0.18 : 0.06))
                     )
                     .overlay(
                         Capsule(style: .continuous)
-                            .stroke(accentYellow.opacity(0.7), lineWidth: 0.8)
+                            .stroke(accentYellow.opacity(hasAnyLink ? 0.7 : 0.3), lineWidth: 0.8)
                     )
                 }
                 .buttonStyle(.plain)
+                .opacity(hasAnyLink ? 1.0 : 0.5)
+                .disabled(!hasAnyLink)
             }
             .padding(.top, 6)
         }
@@ -227,9 +239,33 @@ struct FeaturedMeetCardView: View {
     }
 
     /// Small helper for the three circular icon buttons, with a subtle disabled state.
-    private func featuredLinkButton(systemName: String, isEnabled: Bool, accentYellow: Color) -> some View {
-        Button(action: {
-            // Placeholder: wire up actual deep-linking for featured meet URLs later
+    private func featuredLinkButton(systemName: String, urlString: String?, accentYellow: Color) -> some View {
+        let trimmed: String? = {
+            guard let raw = urlString else { return nil }
+            let s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            return s.isEmpty ? nil : s
+        }()
+
+        let isEnabled = trimmed != nil
+
+        return Button(action: {
+            guard let raw = trimmed else { return }
+
+            // Try the raw string first
+            if let directURL = URL(string: raw), directURL.scheme != nil {
+                print("🔗 Opening featured URL (direct): \(raw)")
+                openURL(directURL)
+                return
+            }
+
+            // If there's no scheme, try prefixing with https://
+            if let httpsURL = URL(string: "https://" + raw) {
+                print("🔗 Opening featured URL (https-prefixed): https://\(raw)")
+                openURL(httpsURL)
+                return
+            }
+
+            print("⚠️ Could not form a valid URL from featuredMeet link: \(raw)")
         }) {
             Image(systemName: systemName)
                 .font(.system(size: 13, weight: .semibold))
@@ -246,6 +282,20 @@ struct FeaturedMeetCardView: View {
         .buttonStyle(.plain)
         .opacity(isEnabled ? 1.0 : 0.45)
         .disabled(!isEnabled)
+    }
+
+    /// Opens the most appropriate URL for the featured meet, preferring the home page, then live results, then stream.
+    private func openPrimaryFeaturedURL() {
+        let candidates = [homeMeetURL, liveResultsURL, watchURL]
+
+        for candidate in candidates {
+            guard let raw = candidate,
+                  !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let url = URL(string: raw) else { continue }
+
+            openURL(url)
+            return
+        }
     }
 }
 

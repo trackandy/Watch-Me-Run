@@ -161,10 +161,18 @@ final class MeetStore: ObservableObject {
                     let date = timestamp.dateValue()
 
                     // Optional fields
-                    let location      = data["location"] as? String
-                    let liveResults   = data["liveResultsURL"] as? String
-                    let watch         = data["watchURL"] as? String
-                    let home          = data["homemeetURL"] as? String
+                    let location    = data["location"] as? String
+                    let liveResults = data["liveResultsURL"] as? String
+                    let watch       = data["watchURL"] as? String
+
+                    // Try several possible keys for the home/meet page URL to be resilient
+                    let home: String? = (
+                        data["meetPageURL"] as? String ??
+                        data["homeMeetURL"] as? String ??
+                        data["homemeetURL"] as? String
+                    )
+
+                    print("⭐️ Featured meet doc \(doc.documentID) URLs — live=\(liveResults ?? "nil"), watch=\(watch ?? "nil"), home=\(home ?? "nil")")
 
                     return WMRFeaturedMeet(
                         id: doc.documentID,
