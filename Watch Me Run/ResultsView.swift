@@ -11,9 +11,11 @@ struct ResultsView: View {
     @ObservedObject var store: MeetStore
 
     private let gridSpacing: CGFloat = 16
+    @State private var isPresentingFeaturedDetail = false
 
 
-    var body: some View {
+var body: some View {
+    ZStack {
         ScrollView(.vertical, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 8) {
                 // Section header for current meets, sitting on a raised platform
@@ -67,7 +69,10 @@ struct ResultsView: View {
                                 location: featured.location,
                                 liveResultsURL: featured.liveResultsURL,
                                 watchURL: featured.watchURL,
-                                homeMeetURL: featured.homeMeetURL
+                                homeMeetURL: featured.homeMeetURL,
+                                onOpenCard: {
+                                    isPresentingFeaturedDetail = true
+                                }
                             )
                             .padding(.horizontal, gutter)
                         }
@@ -101,8 +106,22 @@ struct ResultsView: View {
                 .frame(maxWidth: .infinity, minHeight: 0)
             }
         }
-        
+
+        if isPresentingFeaturedDetail, let featured = store.featuredMeet {
+            // Overlay: dimmed background and the bottom card
+            Color.black.opacity(0.38)
+                .ignoresSafeArea()
+                .transition(.opacity)
+                .zIndex(0.9)
+            FeaturedMeetDetailView(
+                featured: featured,
+                onClose: { isPresentingFeaturedDetail = false }
+            )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .zIndex(1)
+        }
     }
+}
 }
 
 struct FeaturedMeetCardView: View {
@@ -112,6 +131,7 @@ struct FeaturedMeetCardView: View {
     let liveResultsURL: String?
     let watchURL: String?
     let homeMeetURL: String?
+    let onOpenCard: () -> Void
 
     @Environment(\.openURL) private var openURL
 
@@ -185,7 +205,7 @@ struct FeaturedMeetCardView: View {
                 Spacer(minLength: 4)
 
                 Button(action: {
-                    // Placeholder: this will eventually open a detailed featured-event card.
+                    onOpenCard()
                 }) {
                     HStack(spacing: 4) {
                         Image(systemName: "rectangle.and.hand.point.up.left")
