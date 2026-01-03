@@ -13,6 +13,7 @@ import FirebaseFirestore
 @MainActor
 final class MeetStore: ObservableObject {
     @Published var meets: [Meet] = []
+    @Published var featuredMeet: WMRFeaturedMeet?
 
     private let db = Firestore.firestore()
 
@@ -21,7 +22,11 @@ final class MeetStore: ObservableObject {
     // MARK: - Init
 
     init() {
-        loadMeets()
+        // Load initial data from Firestore
+        loadResultsFromFirebase()
+        loadFeaturedMeetFromFirebase()
+        // Optionally also load the local CSV as a fallback or for development
+        // loadMeets()
         startAutoRefresh()
     }
 
@@ -76,12 +81,14 @@ final class MeetStore: ObservableObject {
     // MARK: - Auto Refresh
 
     private func startAutoRefresh() {
-        // Refresh every hour (3600 seconds)
+        // Refresh from Firestore every hour (3600 seconds)
         timerCancellable = Timer
             .publish(every: 3600, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                self?.loadMeets()
+                guard let self = self else { return }
+                self.loadResultsFromFirebase()
+                self.loadFeaturedMeetFromFirebase()
             }
     }
 
@@ -90,7 +97,7 @@ final class MeetStore: ObservableObject {
     /// Temporary helper to verify we can read from the "results" collection in Firestore.
     /// Next step: map these documents into `Meet` instances and assign to `meets`.
     func loadResultsFromFirebase() {
-        db.collection("results").getDocuments { [weak self] snapshot, error in
+        db.collection("results").getDocuments(completion: { [weak self] snapshot, error in
             if let error = error {
                 print("⚠️ Error loading results from Firestore: \(error)")
                 return
@@ -112,6 +119,85 @@ final class MeetStore: ObservableObject {
                 self.meets = loadedMeets
                 print("✅ Loaded \(loadedMeets.count) meets from Firestore 'results'")
             }
-        }
+        })
+    }
+    // MARK: - Firebase Loading (Featured Meet)
+
+    /// Loads the next upcoming featured meet (within the next 32 days) from the "featuredmeets" collection.
+    func loadFeaturedMeetFromFirebase() {
+        let now = Date()
+        let thirtyTwoDaysFromNow = Calendar.current.date(byAdding: .day, value: 32, to: now) ?? now
+
+        db.collection("featuredmeets")
+            .whereField("date", isGreaterThan: now)
+            .order(by: "date")
+            .limit(to: 5) // fetch a few and filter client-side for the 32-day window
+            .getDocuments(completion: { [weak self] snapshot, error in
+                if let error = error {
+                    print("⚠️ Error loading featured meets from Firestore: \(error)")
+                    return
+                }
+
+                guard let self = self else { return }
+
+                guard let documents = snapshot?.documents, !documents.isEmpty else {
+                    print("ℹ️ No upcoming documents found in 'featuredmeets' collection")
+                    Task { @MainActor in
+                        self.featuredMeet = nil
+                    }
+                    return
+                }
+
+                // Map to WMRFeaturedMeet and apply the 32-day filter
+                let mappedFeaturedMeets: [WMRFeaturedMeet] = documents.compactMap { (doc: QueryDocumentSnapshot) -> WMRFeaturedMeet? in
+                    let data = doc.data()
+
+                    // Required fields
+                    guard let name = data["name"] as? String,
+                          let timestamp = data["date"] as? Timestamp else {
+                        return nil
+                    }
+
+                    let date = timestamp.dateValue()
+
+                    // Optional fields
+                    let location      = data["location"] as? String
+                    let liveResults   = data["liveResultsURL"] as? String
+                    let watch         = data["watchURL"] as? String
+                    let home          = data["homemeetURL"] as? String
+
+                    return WMRFeaturedMeet(
+                        id: doc.documentID,
+                        name: name,
+                        date: date,
+                        location: location,
+                        liveResultsURL: liveResults,
+                        watchURL: watch,
+                        homeMeetURL: home
+                    )
+                }
+
+                let filteredFeaturedMeets: [WMRFeaturedMeet] = mappedFeaturedMeets.filter { meet in
+                    meet.date <= thirtyTwoDaysFromNow
+                }
+
+                let upcoming: [WMRFeaturedMeet] = filteredFeaturedMeets.sorted { lhs, rhs in
+                    lhs.date < rhs.date
+                }
+
+                let chosen = upcoming.first
+
+                Task { @MainActor in
+                    self.featuredMeet = chosen
+                    if let chosen = chosen {
+                        let formatter = DateFormatter()
+                        formatter.dateStyle = .medium
+                        formatter.timeStyle = .short
+                        print("✅ Loaded featured meet: \(chosen.name) at \(formatter.string(from: chosen.date))")
+                    } else {
+                        print("ℹ️ No featured meet within 32 days")
+                    }
+                }
+            })
     }
 }

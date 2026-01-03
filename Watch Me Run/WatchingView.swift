@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 struct FeaturedMeet: Identifiable, Hashable {
     let id = UUID()
@@ -28,6 +29,7 @@ struct WatchingView: View {
     @State private var friendIDs: [String] = []
     @State private var hasLoadedFriendsFromStorage: Bool = false
     @State private var isPresentingAddFriend: Bool = false
+    @State private var isPresentingFriendSearch: Bool = false
     @State private var newFriendID: String = ""
     @State private var showingMeetsInfo: Bool = false
     @State private var showingProsInfo: Bool = false
@@ -38,6 +40,10 @@ struct WatchingView: View {
     @State private var selectedRunnerName: String? = nil
     @State private var selectedRunnerIsPro: Bool = true
     @State private var isShowingRunnerDetail: Bool = false
+
+    @State private var friendDisplayNames: [String: String] = [:]
+
+    private let db = Firestore.firestore()
 
     private var isLoggedIn: Bool {
         authManager.firebaseUser != nil
@@ -159,6 +165,9 @@ struct WatchingView: View {
         }
         .sheet(isPresented: $isFriendsExpanded) {
             friendsSheet
+        }
+        .sheet(isPresented: $isPresentingFriendSearch) {
+            friendSearchSheet
         }
         .sheet(isPresented: $isPresentingAddFriend) {
             addFriendSheet
@@ -373,6 +382,29 @@ struct WatchingView: View {
                 Spacer()
 
                 Button {
+                    isPresentingFriendSearch = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Search")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundColor(Color.wmrTextPrimary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.wmrSurfaceAlt.opacity(0.95))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(Color.wmrBorderSubtle, lineWidth: 1)
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+
+                Button {
                     isFriendsExpanded = true
                 } label: {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
@@ -405,7 +437,7 @@ struct WatchingView: View {
                         } else {
                             ForEach(friendIDs, id: \.self) { friendID in
                                 WatchingRow(
-                                    title: friendID,
+                                    title: displayName(for: friendID),
                                     isStarred: favoriteRunners.contains(friendID),
                                     onToggleStar: {
                                         guard isLoggedIn else { return }
@@ -522,7 +554,7 @@ struct WatchingView: View {
                     } else {
                         ForEach(friendIDs, id: \.self) { friendID in
                             WatchingRow(
-                                title: friendID,
+                                title: displayName(for: friendID),
                                 isStarred: favoriteRunners.contains(friendID),
                                 onToggleStar: {
                                     guard isLoggedIn else { return }
@@ -552,6 +584,29 @@ struct WatchingView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {
                         isFriendsExpanded = false
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var friendSearchSheet: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("Search for a runner")) {
+                    Text("Search by name coming soon. For now, you can paste a friend's ID from their Me tab share into the Add Friend screen.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .navigationTitle("Search Friends")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        isPresentingFriendSearch = false
                     }
                 }
             }
@@ -611,6 +666,14 @@ struct WatchingView: View {
         .presentationDetents([.fraction(0.5)])
     }
 
+    private func displayName(for friendID: String) -> String {
+        if let cached = friendDisplayNames[friendID], !cached.isEmpty {
+            return cached
+        } else {
+            return friendID
+        }
+    }
+
     private func addFriendFromInput() {
         let trimmed = newFriendID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -618,6 +681,7 @@ struct WatchingView: View {
         if !friendIDs.contains(trimmed) {
             friendIDs.append(trimmed)
             saveFriendsToStorage()
+            fetchDisplayNameForFriend(id: trimmed)
         }
 
         newFriendID = ""
@@ -631,6 +695,41 @@ struct WatchingView: View {
 
         if let stored = UserDefaults.standard.array(forKey: friendsStorageKey) as? [String] {
             friendIDs = stored
+            // Fetch display names for all stored friend IDs
+            for id in stored {
+                fetchDisplayNameForFriend(id: id)
+            }
+        }
+    }
+
+    private func fetchDisplayNameForFriend(id: String) {
+        // Avoid refetching if we already have a non-empty cached name
+        if let existing = friendDisplayNames[id], !existing.isEmpty {
+            return
+        }
+
+        db.collection("users").document(id).getDocument { snapshot, error in
+            if let error = error {
+                print("❌ Failed to fetch friend details for id \(id): \(error)")
+                return
+            }
+
+            guard let data = snapshot?.data() else {
+                print("ℹ️ No user details document found for friend id \(id)")
+                return
+            }
+
+            let rawName = (data["name"] as? String) ?? ""
+            let trimmedName = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            DispatchQueue.main.async {
+                if trimmedName.isEmpty {
+                    // Fallback to showing the raw ID if no name is set.
+                    self.friendDisplayNames[id] = id
+                } else {
+                    self.friendDisplayNames[id] = trimmedName
+                }
+            }
         }
     }
 
@@ -955,3 +1054,4 @@ struct WatchingView_Previews: PreviewProvider {
             .background(Color.wmrBackground)
     }
 }
+
