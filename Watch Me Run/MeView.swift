@@ -304,6 +304,8 @@ struct MeView: View {
                                 Text("Distance")
                                     .font(.caption2)
                                     .foregroundColor(Color.wmrTextTertiary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
                                     .frame(width: 60, alignment: .center)
 
                                 Text("Links")
@@ -461,6 +463,8 @@ struct MeView: View {
                                 Text("Distance")
                                     .font(.caption2)
                                     .foregroundColor(Color.wmrTextTertiary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
                                     .frame(width: 60, alignment: .center)
 
                                 Text("Links")
