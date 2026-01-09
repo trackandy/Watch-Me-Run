@@ -6,10 +6,14 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 struct TopBarView: View {
     @Binding var isShowingSettings: Bool
+    @EnvironmentObject var authManager: AuthManager
     @State private var isShowingFlagSheet = false
+    @State private var flagMessage: String = ""
+    @State private var suggestionMessage: String = ""
 
     var body: some View {
         HStack {
@@ -61,21 +65,125 @@ struct TopBarView: View {
             Color(red: 5/255, green: 10/255, blue: 30/255)
         )
         .sheet(isPresented: $isShowingFlagSheet) {
-            VStack(spacing: 16) {
-                Text("Flag Data Issues")
-                    .font(.headline)
-                Text("Flag any issues with meet or pro data with the app team. The team will update the data quickly.")
-                    .font(.subheadline)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+            NavigationView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Flag data issues or suggest features")
+                        .font(.headline)
 
-                Button("Close") {
-                    isShowingFlagSheet = false
+                    Text("Let us know if something looks wrong, or share ideas to make Watch Me Run better.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    // First text box: data issues
+                    Group {
+                        Text("What's wrong?")
+                            .font(.subheadline.weight(.semibold))
+
+                        ZStack(alignment: .topLeading) {
+                            if flagMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text("Describe any incorrect meet, link, schedule, or other data…")
+                                    .foregroundColor(.secondary)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 6)
+                            }
+                            TextEditor(text: $flagMessage)
+                                .frame(minHeight: 90)
+                                .padding(4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color.gray.opacity(0.3))
+                                )
+                        }
+                    }
+
+                    // Second text box: feature suggestions / comments
+                    Group {
+                        Text("Feature suggestions / comments")
+                            .font(.subheadline.weight(.semibold))
+
+                        ZStack(alignment: .topLeading) {
+                            if suggestionMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text("Share feature ideas, UX feedback, or anything else on your mind…")
+                                    .foregroundColor(.secondary)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 6)
+                            }
+                            TextEditor(text: $suggestionMessage)
+                                .frame(minHeight: 80)
+                                .padding(4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color.gray.opacity(0.3))
+                                )
+                        }
+                    }
+
+                    Spacer()
+
+                    Button(action: {
+                        submitFlag(
+                            message: flagMessage,
+                            suggestion: suggestionMessage,
+                            reporterUid: authManager.uid
+                        )
+                        // Reset state and close
+                        flagMessage = ""
+                        suggestionMessage = ""
+                        isShowingFlagSheet = false
+                    }) {
+                        Text("Submit")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.yellow)
+                            .foregroundColor(.black)
+                            .cornerRadius(12)
+                    }
+                    .disabled(
+                        flagMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                        suggestionMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
                 }
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .padding(.top, 8)
+                .padding()
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            isShowingFlagSheet = false
+                        }
+                    }
+                }
             }
-            .padding()
+        }
+    }
+}
+
+private func submitFlag(message: String, suggestion: String, reporterUid: String?) {
+    let trimmedMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
+    let trimmedSuggestion = suggestion.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    guard !trimmedMessage.isEmpty || !trimmedSuggestion.isEmpty else {
+        print("ℹ️ submitFlag: nothing to send (both fields empty)")
+        return
+    }
+
+    let db = Firestore.firestore()
+    var data: [String: Any] = [
+        "createdAt": FieldValue.serverTimestamp(),
+        "message": trimmedMessage,
+        "suggestion": trimmedSuggestion,
+        "source": "topBarFlagSheet"
+    ]
+
+    if let reporterUid = reporterUid {
+        data["reporterUid"] = reporterUid
+    }
+
+    db.collection("flags").addDocument(data: data) { error in
+        if let error = error {
+            print("⚠️ Failed to submit flag: \(error.localizedDescription)")
+        } else {
+            print("✅ Flag / feedback submitted successfully")
         }
     }
 }
@@ -83,6 +191,7 @@ struct TopBarView: View {
 struct TopBarView_Previews: PreviewProvider {
     static var previews: some View {
         TopBarView(isShowingSettings: .constant(false))
+            .environmentObject(AuthManager())
             .previewLayout(.sizeThatFits)
     }
 }

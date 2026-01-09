@@ -199,4 +199,66 @@ final class NotificationManager {
     private func watchingIdentifier(raceID: String, slot: String) -> String {
         return "watch-\(raceID)-\(slot)"
     }
+
+    // MARK: - Featured event watching notifications
+
+    /// Schedule a single notification for a specific featured event the user is watching.
+    /// Unlike full races/meets (which may get two reminders), individual events only get
+    /// one reminder at `minutesBefore` to avoid over-notifying users.
+    ///
+    /// - Parameters:
+    ///   - eventKey: Stable key for this event in the watching store (e.g. user+meet+event).
+    ///   - eventName: Display name for the event (e.g. "Men's 1500m Final").
+    ///   - eventStartDate: Exact start date/time of the event in the user's current time zone.
+    ///   - minutesBefore: How many minutes before the event start the reminder should fire.
+    func scheduleWatchingNotificationForFeaturedEvent(
+        eventKey: String,
+        eventName: String,
+        eventStartDate: Date,
+        minutesBefore: Int
+    ) {
+        let now = Date()
+        guard minutesBefore > 0 else {
+            print("ℹ️ Skipping featured event notification for \(eventName) — minutesBefore <= 0")
+            return
+        }
+
+        let fireDate = eventStartDate.addingTimeInterval(-Double(minutesBefore) * 60)
+
+        // If the reminder time is already in the past, skip scheduling.
+        guard fireDate > now else {
+            print("ℹ️ Skipping featured event notification for \(eventName) — reminder time already passed.")
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Event you're watching"
+        content.body = "\(eventName) is about to start. Tap to follow along."
+        content.sound = .default
+
+        let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+        let identifier = watchingFeaturedIdentifier(eventKey: eventKey)
+
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        center.add(request) { error in
+            if let error = error {
+                print("❌ Failed to schedule featured event watching notification for \(eventName): \(error)")
+            } else {
+                print("✅ Scheduled featured event watching notification for \(eventName) at \(fireDate) (\(minutesBefore)m before)")
+            }
+        }
+    }
+
+    /// Cancel any previously scheduled watching notification for a specific featured event.
+    func cancelWatchingNotificationForFeaturedEvent(eventKey: String) {
+        let identifier = watchingFeaturedIdentifier(eventKey: eventKey)
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        print("🗑️ Cancelled featured event watching notification for eventKey=\(eventKey)")
+    }
+
+    /// Helper to generate unique identifiers for featured event watching notifications.
+    private func watchingFeaturedIdentifier(eventKey: String) -> String {
+        return "watch-featured-\(eventKey)"
+    }
 }

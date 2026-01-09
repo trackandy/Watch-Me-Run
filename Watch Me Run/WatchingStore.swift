@@ -185,6 +185,8 @@ final class WatchingStore: ObservableObject {
         if watchedFeaturedEventKeys.contains(key) {
             // Currently watching → unwatch
             print("🔁 WatchingStore: unwatching featured event key=\(key) for uid=\(currentUserID)")
+            // Cancel any previously scheduled notification for this featured event.
+            NotificationManager.shared.cancelWatchingNotificationForFeaturedEvent(eventKey: key)
             ref.delete { error in
                 if let error = error {
                     print("⚠️ WatchingStore: failed to unwatch featured event: \(error.localizedDescription)")
@@ -204,6 +206,18 @@ final class WatchingStore: ObservableObject {
             }
 
             print("🔁 WatchingStore: watching featured event key=\(key) for uid=\(currentUserID)")
+            // Schedule a single watching notification for this featured event, if we have a start time.
+            if let start = eventStart {
+                // For now, use a single 20-minute reminder before the event.
+                NotificationManager.shared.scheduleWatchingNotificationForFeaturedEvent(
+                    eventKey: key,
+                    eventName: eventName,
+                    eventStartDate: start,
+                    minutesBefore: 20
+                )
+            } else {
+                print("ℹ️ WatchingStore: no start time for featured event \(eventName); skipping notification scheduling.")
+            }
             ref.setData(data) { error in
                 if let error = error {
                     print("⚠️ WatchingStore: failed to watch featured event: \(error.localizedDescription)")
