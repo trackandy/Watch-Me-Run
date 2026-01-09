@@ -12,10 +12,12 @@ struct FeaturedMeetDetailView: View {
     let featured: WMRFeaturedMeet
     let onClose: () -> Void
 
+    @EnvironmentObject var watchingStore: WatchingStore
+    @EnvironmentObject var authManager: AuthManager
+
     @Environment(\.openURL) private var openURL
     @State private var events: [FeaturedEvent] = []
     @State private var isLoadingEvents: Bool = false
-    @State private var watchedEventIDs: Set<String> = []
 
     private var formattedDate: String {
         let formatter = DateFormatter()
@@ -109,6 +111,12 @@ struct FeaturedMeetDetailView: View {
                         } else {
                             VStack(alignment: .leading, spacing: 6) {
                                 ForEach(events) { event in
+                                    let eventKey = watchingStore.keyForFeaturedEvent(
+                                        featuredMeetId: featured.id,
+                                        eventId: event.id
+                                    )
+                                    let isWatched = watchingStore.watchedFeaturedEventKeys.contains(eventKey)
+
                                     HStack(alignment: .center, spacing: 8) {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(event.name)
@@ -142,14 +150,17 @@ struct FeaturedMeetDetailView: View {
                                         Spacer(minLength: 8)
 
                                         Button(action: {
-                                            if watchedEventIDs.contains(event.id) {
-                                                watchedEventIDs.remove(event.id)
-                                            } else {
-                                                watchedEventIDs.insert(event.id)
-                                            }
+                                            guard let uid = authManager.uid else { return }
+                                            watchingStore.toggleFeaturedEventWatching(
+                                                currentUserID: uid,
+                                                featuredMeetId: featured.id,
+                                                eventId: event.id,
+                                                eventName: event.name,
+                                                eventStart: event.startDate
+                                            )
                                         }) {
                                             HStack(spacing: 4) {
-                                                Image(systemName: watchedEventIDs.contains(event.id) ? "star.fill" : "star")
+                                                Image(systemName: isWatched ? "star.fill" : "star")
                                                     .font(.system(size: 13, weight: .semibold))
 
                                                 Text("Watch")
@@ -159,11 +170,11 @@ struct FeaturedMeetDetailView: View {
                                             .padding(.vertical, 4)
                                             .background(
                                                 Capsule()
-                                                    .fill(Color.black.opacity(watchedEventIDs.contains(event.id) ? 0.28 : 0.18))
+                                                    .fill(Color.black.opacity(isWatched ? 0.28 : 0.18))
                                             )
                                             .overlay(
                                                 Capsule()
-                                                    .stroke(accentYellow.opacity(watchedEventIDs.contains(event.id) ? 0.95 : 0.6), lineWidth: 0.9)
+                                                    .stroke(accentYellow.opacity(isWatched ? 0.95 : 0.6), lineWidth: 0.9)
                                             )
                                             .foregroundColor(accentYellow.opacity(0.97))
                                         }
