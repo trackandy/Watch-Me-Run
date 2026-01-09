@@ -14,6 +14,7 @@ struct WatchMeRunApp: App {
     @StateObject private var authManager = AuthManager()
     @StateObject private var raceStore = UserRaceStore()
     @StateObject private var userDetailsStore = UserDetailsStore()
+    @StateObject private var watchingStore = WatchingStore()
 
     init() {
         FirebaseApp.configure()
@@ -26,23 +27,27 @@ struct WatchMeRunApp: App {
                 .environmentObject(authManager)
                 .environmentObject(raceStore)
                 .environmentObject(userDetailsStore)
+                .environmentObject(watchingStore)
                 .preferredColorScheme(.dark)
                 .onAppear {
                     // If the user is already signed in when the app launches,
-                    // start listening to their races and details.
+                    // start listening to their races, details, and watching state.
                     if let uid = authManager.firebaseUser?.uid {
                         raceStore.startListening(for: uid)
                         userDetailsStore.startListening(for: uid)
+                        watchingStore.startListening(for: uid)
                     }
                 }
                 .onChange(of: authManager.firebaseUser?.uid, initial: false) { oldUid, newUid in
-                    // When auth state changes, update the race and details listeners.
+                    // When auth state changes, update the race, details, and watching listeners.
                     if let uid = newUid {
                         raceStore.startListening(for: uid)
                         userDetailsStore.startListening(for: uid)
+                        watchingStore.startListening(for: uid)
                     } else {
                         raceStore.stopListening()
                         userDetailsStore.stopListening()
+                        watchingStore.stopListening()
                     }
                 }
         }

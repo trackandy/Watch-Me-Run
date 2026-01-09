@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import FirebaseAuth
 
 struct FeaturedMeet: Identifiable, Hashable {
     let id = UUID()
@@ -21,6 +22,7 @@ struct FeaturedMeet: Identifiable, Hashable {
 
 struct WatchingView: View {
     @EnvironmentObject var authManager: AuthManager
+    @EnvironmentObject var watchingStore: WatchingStore
 
     // Placeholder local state for favorites until real data is wired in
     @State private var favoriteMeets: Set<String> = []
@@ -309,35 +311,24 @@ struct WatchingView: View {
             }
 
             WatchingSectionCard {
-                ScrollView(.vertical, showsIndicators: true) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(featuredPros, id: \.self) { pro in
-                            WatchingRow(
-                                title: pro,
-                                isStarred: favoritePros.contains(pro),
-                                onToggleStar: {
-                                    if favoritePros.contains(pro) {
-                                        favoritePros.remove(pro)
-                                    } else {
-                                        favoritePros.insert(pro)
-                                    }
-                                },
-                                onRowTap: {
-                                    selectedRunnerName = pro
-                                    selectedRunnerIsPro = true
-                                    isShowingRunnerDetail = true
-                                }
-                            )
+                VStack(alignment: .center, spacing: 8) {
+                    Spacer(minLength: 8)
 
-                            if pro != featuredPros.last {
-                                Divider()
-                                    .background(Color.wmrBorderSubtle)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 4)
+                    Text("Coming soon")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(Color.yellow)
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+
+                    Text("Featured pros and schedules will be available in a future update.")
+                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                        .foregroundColor(Color.wmrTextSecondary.opacity(0.8))
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+
+                    Spacer(minLength: 8)
                 }
-                .frame(height: 190)
+                .frame(height: 120)
             }
         }
         .padding(.horizontal, 16)
@@ -438,14 +429,10 @@ struct WatchingView: View {
                             ForEach(friendIDs, id: \.self) { friendID in
                                 WatchingRow(
                                     title: displayName(for: friendID),
-                                    isStarred: favoriteRunners.contains(friendID),
+                                    isStarred: watchingStore.watchedFriendIDs.contains(friendID),
                                     onToggleStar: {
-                                        guard isLoggedIn else { return }
-                                        if favoriteRunners.contains(friendID) {
-                                            favoriteRunners.remove(friendID)
-                                        } else {
-                                            favoriteRunners.insert(friendID)
-                                        }
+                                        guard isLoggedIn, let uid = authManager.firebaseUser?.uid else { return }
+                                        watchingStore.toggleFriendWatching(currentUserID: uid, friendID: friendID)
                                     },
                                     onRowTap: {
                                         selectedRunnerName = friendID
@@ -498,29 +485,29 @@ struct WatchingView: View {
     private var featuredProsSheet: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(featuredPros, id: \.self) { pro in
-                        WatchingRow(
-                            title: pro,
-                            isStarred: favoritePros.contains(pro),
-                            onToggleStar: {
-                                if favoritePros.contains(pro) {
-                                    favoritePros.remove(pro)
-                                } else {
-                                    favoritePros.insert(pro)
-                                }
-                            },
-                            onRowTap: {
-                                selectedRunnerName = pro
-                                selectedRunnerIsPro = true
-                                isShowingRunnerDetail = true
-                            }
-                        )
-                        Divider()
-                            .background(Color.wmrBorderSubtle)
+                VStack(spacing: 16) {
+                    WatchingSectionCard {
+                        VStack(alignment: .center, spacing: 12) {
+                            Text("Featured Pros")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .foregroundColor(Color.wmrTextPrimary)
+                                .frame(maxWidth: .infinity)
+                                .multilineTextAlignment(.center)
+
+                            Text("Tracking pros and their race schedules is coming soon.")
+                                .font(.system(size: 14, weight: .regular, design: .rounded))
+                                .foregroundColor(Color.wmrTextSecondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 16)
+                        }
+                        .frame(maxWidth: .infinity)
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 24)
+
+                    Spacer(minLength: 0)
                 }
-                .padding(16)
+                .padding(.bottom, 24)
             }
             .background(Color.wmrBackground.ignoresSafeArea())
             .navigationTitle("Featured Pros")
@@ -555,14 +542,10 @@ struct WatchingView: View {
                         ForEach(friendIDs, id: \.self) { friendID in
                             WatchingRow(
                                 title: displayName(for: friendID),
-                                isStarred: favoriteRunners.contains(friendID),
+                                isStarred: watchingStore.watchedFriendIDs.contains(friendID),
                                 onToggleStar: {
-                                    guard isLoggedIn else { return }
-                                    if favoriteRunners.contains(friendID) {
-                                        favoriteRunners.remove(friendID)
-                                    } else {
-                                        favoriteRunners.insert(friendID)
-                                    }
+                                    guard isLoggedIn, let uid = authManager.firebaseUser?.uid else { return }
+                                    watchingStore.toggleFriendWatching(currentUserID: uid, friendID: friendID)
                                 },
                                 onRowTap: {
                                     selectedRunnerName = friendID
@@ -746,7 +729,7 @@ struct WatchingView: View {
                 if selectedRunnerIsPro {
                     return favoritePros.contains(name)
                 } else {
-                    return favoriteRunners.contains(name)
+                    return watchingStore.watchedFriendIDs.contains(name)
                 }
             },
             set: { newValue in
@@ -757,11 +740,9 @@ struct WatchingView: View {
                         favoritePros.remove(name)
                     }
                 } else {
-                    if newValue {
-                        favoriteRunners.insert(name)
-                    } else {
-                        favoriteRunners.remove(name)
-                    }
+                    guard let uid = authManager.firebaseUser?.uid else { return }
+                    // We simply toggle via WatchingStore; it will sync with Firestore
+                    watchingStore.toggleFriendWatching(currentUserID: uid, friendID: name)
                 }
             }
         )

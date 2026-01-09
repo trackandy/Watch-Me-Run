@@ -13,6 +13,11 @@ final class AuthManager: ObservableObject {
     private var authStateHandle: AuthStateDidChangeListenerHandle?
     @Published var firebaseUser: User?
 
+    /// Convenience accessor for the currently signed-in user's UID.
+    var uid: String? {
+        firebaseUser?.uid
+    }
+
     init() {
         // Grab current user (if any) on startup
         self.firebaseUser = Auth.auth().currentUser
@@ -20,6 +25,17 @@ final class AuthManager: ObservableObject {
         // Listen for changes in auth state
         authStateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             self?.firebaseUser = user
+            if let uid = user?.uid {
+                print("👤 AuthManager: auth state changed, signed in as \(uid)")
+            } else {
+                print("👤 AuthManager: auth state changed, user is signed out")
+            }
+        }
+    }
+
+    deinit {
+        if let handle = authStateHandle {
+            Auth.auth().removeStateDidChangeListener(handle)
         }
     }
 
