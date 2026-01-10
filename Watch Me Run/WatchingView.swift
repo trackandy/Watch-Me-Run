@@ -45,6 +45,10 @@ struct WatchingView: View {
 
     @State private var friendDisplayNames: [String: String] = [:]
 
+    // Friend search state
+    @ObservedObject private var userSearch = UserSearchService.shared
+    @State private var searchQuery: String = ""
+
     private let db = Firestore.firestore()
 
     private var isLoggedIn: Bool {
@@ -316,7 +320,7 @@ struct WatchingView: View {
 
                     Text("Coming soon")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(Color.yellow)
+                        .foregroundColor(Color.yellow.opacity(0.9))
                         .frame(maxWidth: .infinity)
                         .multilineTextAlignment(.center)
 
@@ -577,11 +581,103 @@ struct WatchingView: View {
     private var friendSearchSheet: some View {
         NavigationStack {
             Form {
+                // Search input
                 Section(header: Text("Search for a runner")) {
-                    Text("Search by name coming soon. For now, you can paste a friend's ID from their Me tab share into the Add Friend screen.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    TextField("Search by name", text: $searchQuery)
+                        .textInputAutocapitalization(.words)
+                        .autocorrectionDisabled(false)
+                        .onChange(of: searchQuery) { oldValue, newValue in
+                            userSearch.searchUsers(byName: newValue)
+                        }
+
+                    if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 {
+                        Text("Type at least 2 letters to start searching.")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                // Loading indicator
+                if userSearch.isSearching {
+                    Section {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
+                    }
+                }
+
+                // Results
+                Section(header: Text("Results")) {
+                    let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    if trimmed.count >= 2 && userSearch.results.isEmpty && !userSearch.isSearching {
+                        Text("No runners found. Try a different name or spelling.")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    } else {
+                        ForEach(userSearch.results) { result in
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(result.name)
+                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                        .foregroundColor(Color.wmrTextPrimary)
+
+                                    if let location = result.location, let affiliation = result.affiliation {
+                                        Text("\(location) • \(affiliation)")
+                                            .font(.footnote)
+                                            .foregroundColor(.secondary)
+                                    } else if let location = result.location {
+                                        Text(location)
+                                            .font(.footnote)
+                                            .foregroundColor(.secondary)
+                                    } else if let affiliation = result.affiliation {
+                                        Text(affiliation)
+                                            .font(.footnote)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+
+                                Spacer()
+
+                                Button {
+                                    // Add friend + immediately mark as watching
+                                    addFriend(
+                                        id: result.id,
+                                        displayName: result.name,
+                                        setWatching: true
+                                    )
+                                } label: {
+                                    Text(isLoggedIn ? "Watch" : "Add")
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .fill(Color.wmrSurfaceAlt.opacity(isLoggedIn ? 0.95 : 0.7))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                        .stroke(Color.wmrBorderSubtle, lineWidth: 1)
+                                                )
+                                        )
+                                        .foregroundColor(Color.wmrTextPrimary)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(!isLoggedIn)
+                                .opacity(isLoggedIn ? 1.0 : 0.4)
+                            }
+                        }
+                    }
+                }
+
+                // Login hint if needed
+                if !isLoggedIn {
+                    Section {
+                        Text("Log in on the Me tab to start watching friends and saving them to your list.")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             .navigationTitle("Search Friends")
@@ -589,6 +685,9 @@ struct WatchingView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {
+                        // Clear state when dismissing
+                        searchQuery = ""
+                        userSearch.results = []
                         isPresentingFriendSearch = false
                     }
                 }
@@ -657,15 +756,34 @@ struct WatchingView: View {
         }
     }
 
+    private func addFriend(id: String, displayName: String? = nil, setWatching: Bool = false) {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        // Add to local friends list if not already present
+        if !friendIDs.contains(trimmed) {
+            friendIDs.append(trimmed)
+            saveFriendsToStorage()
+        }
+
+        // Cache display name if provided; otherwise fetch from Firestore
+        if let name = displayName, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            friendDisplayNames[trimmed] = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            fetchDisplayNameForFriend(id: trimmed)
+        }
+
+        // Optionally mark as "watching" via WatchingStore
+        if setWatching, let uid = authManager.firebaseUser?.uid {
+            watchingStore.toggleFriendWatching(currentUserID: uid, friendID: trimmed)
+        }
+    }
+
     private func addFriendFromInput() {
         let trimmed = newFriendID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        if !friendIDs.contains(trimmed) {
-            friendIDs.append(trimmed)
-            saveFriendsToStorage()
-            fetchDisplayNameForFriend(id: trimmed)
-        }
+        addFriend(id: trimmed, displayName: nil, setWatching: false)
 
         newFriendID = ""
         isPresentingAddFriend = false

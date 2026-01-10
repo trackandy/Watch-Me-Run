@@ -101,33 +101,73 @@ struct ContentView: View {
 
 struct FilterSearchBar: View {
     var body: some View {
-        HStack(spacing: 24) {
-            Button {
-                // TODO: Hook up filter sheet / menu
-                print("Filter tapped")
-            } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle")
-                    .font(.system(size: 18, weight: .semibold))
-                    .frame(width: 40, height: 40)
-            }
+        ZStack {
+            // Track-like background wrapping both buttons
+            RoundedRectangle(cornerRadius: 40, style: .continuous)
+                .fill(Color.wmrSurfaceAlt.opacity(0.95))
+                .overlay(
+                    // Outer edge
+                    RoundedRectangle(cornerRadius: 40, style: .continuous)
+                        .stroke(Color.wmrBorderSubtle, lineWidth: 1)
+                )
+                .overlay(
+                    // Inner lane lines to suggest a multi-lane track
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 40, style: .continuous)
+                            .inset(by: 3)
+                            .stroke(Color.wmrBorderSubtle.opacity(0.7), lineWidth: 0.7)
 
-            Button {
-                // TODO: Hook up search field / overlay
-                print("Search tapped")
-            } label: {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 18, weight: .semibold))
-                    .frame(width: 40, height: 40)
+                        RoundedRectangle(cornerRadius: 40, style: .continuous)
+                            .inset(by: 6)
+                            .stroke(Color.wmrBorderSubtle.opacity(0.5), lineWidth: 0.7)
+                    }
+                )
+                .shadow(color: Color.black.opacity(0.45), radius: 10, x: 0, y: 6)
+
+            // Icon-only buttons centered inside the track
+            HStack(spacing: 22) {
+                Button {
+                    // TODO: Hook up filter sheet / menu
+                    print("Filter tapped")
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(Color.wmrTextPrimary)
+                        .frame(width: 34, height: 34)
+                        .background(
+                            Circle()
+                                .fill(Color.wmrBackground.opacity(0.9))
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(Color.wmrBorderSubtle, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    // TODO: Hook up search field / overlay
+                    print("Search tapped")
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(Color.wmrTextPrimary)
+                        .frame(width: 34, height: 34)
+                        .background(
+                            Circle()
+                                .fill(Color.wmrBackground.opacity(0.9))
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(Color.wmrBorderSubtle, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
             }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 6)
         }
-        
-        .padding(.horizontal, 15)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 40)
-                .fill(Color.white.opacity(0.10))
-                .shadow(color: Color.black.opacity(0.4), radius: 6, x: 0, y: 4)
-        )
+        .frame(width: 130, height: 52)
         .padding(.vertical, 4)
     }
 }

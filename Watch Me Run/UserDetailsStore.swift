@@ -93,12 +93,22 @@ final class UserDetailsStore: ObservableObject {
             return
         }
 
-        let dict = details.toDictionary()
-        print("⬆️ UserDetailsStore.save: saving details for uid \(uid) with data: \(dict)")
+        var data = details.toDictionary()
+
+        // Derive a lowercase search field from the user's name, if present.
+        if let rawName = data["name"] as? String {
+            let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                data["name"] = trimmed
+                data["searchNameLower"] = trimmed.lowercased()
+            }
+        }
+
+        print("⬆️ UserDetailsStore.save: saving details for uid \(uid) with data: \(data)")
 
         db.collection("users")
             .document(uid)
-            .setData(dict, merge: true) { error in
+            .setData(data, merge: true) { error in
                 if let error = error {
                     print("❌ UserDetailsStore.save error for uid \(uid): \(error)")
                     completion?(error)
