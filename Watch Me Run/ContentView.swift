@@ -102,72 +102,72 @@ struct ContentView: View {
 struct FilterSearchBar: View {
     var body: some View {
         ZStack {
-            // Track-like background wrapping both buttons
-            RoundedRectangle(cornerRadius: 40, style: .continuous)
-                .fill(Color.wmrSurfaceAlt.opacity(0.95))
-                .overlay(
-                    // Outer edge
-                    RoundedRectangle(cornerRadius: 40, style: .continuous)
-                        .stroke(Color.wmrBorderSubtle, lineWidth: 1)
-                )
-                .overlay(
-                    // Inner lane lines to suggest a multi-lane track
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 40, style: .continuous)
-                            .inset(by: 3)
-                            .stroke(Color.wmrBorderSubtle.opacity(0.7), lineWidth: 0.7)
+            GeometryReader { geo in
+                let height = geo.size.height
+                let cornerRadius = height / 2
 
-                        RoundedRectangle(cornerRadius: 40, style: .continuous)
-                            .inset(by: 6)
-                            .stroke(Color.wmrBorderSubtle.opacity(0.5), lineWidth: 0.7)
+                // Base track shape (core oval)
+                let coreShape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+                ZStack {
+                    // Lane configuration
+                    let laneCount = 6
+                    let laneStep: CGFloat = 2.5 // distance between lane outlines
+                    let trackSurfaceInset = -laneStep * CGFloat(laneCount)
+
+                    // Clay-colored track surface around the green core (more translucent)
+                    coreShape
+                        .inset(by: trackSurfaceInset)
+                        .fill(Color.wmrAccentOrange.opacity(0.45))
+
+                    // Outer line around the whole figure, using background navy
+                    coreShape
+                        .inset(by: trackSurfaceInset)
+                        .stroke(Color.wmrBackground.opacity(0.9), lineWidth: 1.1)
+
+                    // Solid light-green core (infield), more subtle
+                    coreShape
+                        .fill(Color.wmrAccentGreen.opacity(0.6))
+                        .overlay(
+                            coreShape
+                                .stroke(Color.white.opacity(0.2), lineWidth: 1.0)
+                        )
+
+                    // Lane lines drawn on top of the clay surface, using dark navy (background color)
+                    ForEach(0..<laneCount, id: \.self) { index in
+                        coreShape
+                            .inset(by: -CGFloat(index) * laneStep)
+                            .stroke(
+                                (index == 0
+                                 ? Color.white.opacity(0.18)
+                                 : Color.wmrBackground.opacity(0.7)),
+                                lineWidth: index == 0 ? 1.3 : 0.9
+                            )
                     }
-                )
-                .shadow(color: Color.black.opacity(0.45), radius: 10, x: 0, y: 6)
 
-            // Icon-only buttons centered inside the track
-            HStack(spacing: 22) {
-                Button {
-                    // TODO: Hook up filter sheet / menu
-                    print("Filter tapped")
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(Color.wmrTextPrimary)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            Circle()
-                                .fill(Color.wmrBackground.opacity(0.9))
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(Color.wmrBorderSubtle, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
+                    // Midfield "50-yard line" running down the inner oval
+                    Rectangle()
+                        .fill(Color.white.opacity(0.35))
+                        .frame(width: 1.2, height: height * 0.7)
 
-                Button {
-                    // TODO: Hook up search field / overlay
-                    print("Search tapped")
-                } label: {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(Color.wmrTextPrimary)
-                        .frame(width: 34, height: 34)
-                        .background(
-                            Circle()
-                                .fill(Color.wmrBackground.opacity(0.9))
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(Color.wmrBorderSubtle, lineWidth: 1)
-                        )
+                    // Filter and Search icons on either side of the field
+                    HStack {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.wmrTextPrimary)
+
+                        Spacer(minLength: 0)
+
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.wmrTextPrimary)
+                    }
+                    .padding(.horizontal, 14)
                 }
-                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 6)
         }
-        .frame(width: 130, height: 52)
+        .frame(width: 95, height: 42)
+        .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
         .padding(.vertical, 4)
     }
 }
