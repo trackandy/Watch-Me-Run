@@ -125,9 +125,9 @@ struct FilterSearchBar: View {
                         .inset(by: trackSurfaceInset)
                         .stroke(Color.wmrBackground.opacity(0.9), lineWidth: 1.1)
 
-                    // Solid light-green core (infield), more subtle
+                    // Solid darker green core (infield), more grounded
                     coreShape
-                        .fill(Color.wmrAccentGreen.opacity(0.6))
+                        .fill(Color(red: 20/255, green: 100/255, blue: 70/255).opacity(0.9))
                         .overlay(
                             coreShape
                                 .stroke(Color.white.opacity(0.2), lineWidth: 1.0)
@@ -153,13 +153,13 @@ struct FilterSearchBar: View {
                     // Filter and Search icons on either side of the field
                     HStack {
                         Image(systemName: "line.3.horizontal.decrease.circle")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(.wmrTextPrimary)
 
                         Spacer(minLength: 0)
 
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(.wmrTextPrimary)
                     }
                     .padding(.horizontal, 14)
